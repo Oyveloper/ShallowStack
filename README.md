@@ -4,4 +4,12 @@ This is a school project where we implement a simplified version of the DeepStac
 
 ## Simplifications
 
-Comming ...
+### Betting
+
+To simplify both the implementation and search space I have opted to simplify how betting works. This is done by only allowing the following bets:
+
+| Name      | Amount      |
+| --------- | ----------- |
+| SMALL_BET |  10         |
+| BIG_BET   | 100         |
+| ALL_IN    |  everything |
