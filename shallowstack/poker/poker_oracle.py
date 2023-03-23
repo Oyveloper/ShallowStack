@@ -50,7 +50,8 @@ class PokerOracle:
         for i in range(range_length):
             h1_ids = hole_card_ids_from_pair_idx(i)
             hand = [Card.from_id(h1_ids[0]), Card.from_id(h1_ids[1])]
-            hand_strenghts[i] = PokerOracle.hand_strength(hand, public_cards, 100)
+
+            hand_strenghts[i] = PokerOracle.evaluate_hand(hand + public_cards)
 
         m = np.sign(-np.subtract.outer(hand_strenghts, hand_strenghts))
         return m
@@ -185,38 +186,6 @@ class PokerOracle:
         return win_rate
 
     @staticmethod
-    def hand_strength(
-        hand: List[Card], public_cards: List[Card], max_iter: int = 1000
-    ) -> float:
-        """
-        Given the n hands and 3, 4 or 5 public cards, returns the win_rate for each player
-
-        This is based on rollouts of the remaining public cards
-        """
-        if len(public_cards) not in [3, 4, 5]:
-            raise ValueError("Must have 3, 4 or 5 public cards")
-
-        for c in hand:
-            if c in public_cards:
-                # Cannot allow to have same hand as public cards
-                return 0
-
-        deck = Deck()
-        deck.remove_cards(public_cards)
-        deck.remove_cards(hand)
-        remaining_public = 5 - len(public_cards)
-
-        avg_strenght = 0
-        for _ in range(max_iter):
-            d = deck.copy()
-            p = public_cards + d.draw(remaining_public)
-            strength = PokerOracle.evaluate_hand(hand + p)
-            avg_strenght += strength
-        avg_strenght /= max_iter
-
-        return avg_strenght
-
-    @staticmethod
     def get_win_rates_for_hands(
         hands: List[List[Card]], public_cards: List[Card], max_iter: int = 1000
     ) -> np.ndarray:
@@ -250,6 +219,17 @@ class PokerOracle:
         return win_rates
 
     @staticmethod
+    def get_winner(hands: List[List[Card]], public_cards: List[Card]) -> int:
+        """
+        Returns the index of the winner of the given hands
+        """
+        hand_ranks = [PokerOracle.evaluate_hand(hand + public_cards) for hand in hands]
+
+        # lower rank => better hand
+        return np.argmin(hand_ranks)
+
+
+    @staticmethod
     def evaluate_hand(hand: List[Card]) -> int:
         """
         External wrapper to be used for evaluating a hand of cards.
@@ -257,8 +237,24 @@ class PokerOracle:
         for the hashing
         """
 
+        if len(hand) == 2:
+            return PokerOracle._evaluate_hand_without_public_cards(hand)
+
         int_cards = [c.id for c in hand]
         return PokerOracle._evaluate_hand(int_cards)
+
+    @staticmethod
+    def _evaluate_hand_without_public_cards(hand: List[Card]) -> int:
+        """
+        Used for evaluating utility matrix in the case of no public cards
+
+        Returns a ranking, so lower number is better
+        """
+        if hand[0].rank == hand[1].rank:
+            # pair
+            return 14 - hand[0].rank_value
+        else:
+            return 30 - (np.max([hand[0].rank_value, hand[1].rank_value]))
 
     @staticmethod
     def _evaluate_hand(cards: List[int]) -> int:

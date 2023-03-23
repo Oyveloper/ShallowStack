@@ -2,6 +2,7 @@ import sys
 
 from shallowstack.game.poker_game import GameManager
 from shallowstack.player.human import Human
+from shallowstack.player.resolve_player import ResolvePlayer
 from shallowstack.poker.card import Card
 from shallowstack.poker.poker_oracle import PokerOracle
 
@@ -25,7 +26,7 @@ def show_cheat_sheet():
 
 def main():
     player1 = Human("Player 1")
-    player2 = Human("Player 2")
+    player2 = ResolvePlayer("Player 2")
 
     game = GameManager([player1, player2])
 

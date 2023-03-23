@@ -1,13 +1,15 @@
-from typing import List
 from shallowstack.game.action import ActionType, Action
 from shallowstack.player.player import Player
+from shallowstack.state_manager.state_manager import StateManager, GameState
 
 
 class Human(Player):
     def __init__(self, name: str, chips: int = 1000):
         super().__init__(name, chips)
 
-    def get_action(self, legal_actions: List[ActionType]) -> Action:
+    def get_action(self, game_state: GameState) -> Action:
+
+        legal_actions = StateManager.get_legal_actions(game_state)
 
         print(f"Player: {self.name} must chose an action")
         action_descriptions = [

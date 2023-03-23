@@ -1,3 +1,6 @@
+game:
+	poetry run python3 main.py
+
 cheat-sheet:
 	poetry run python3 main.py cheat_sheet
 

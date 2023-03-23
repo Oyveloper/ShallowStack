@@ -23,36 +23,7 @@ RANK_NUM_DICT = {
 NUM_SUIT_DICT = {v: k for k, v in SUIT_NUM_DICT.items()}
 NUM_RANK_DICT = {v: k for k, v in RANK_NUM_DICT.items()}
 
-
-def hole_pair_idx_from_ids(id1: int, id2: int) -> int:
-    """
-    Computes the index of the hole pair from the ids of the cards
-    """
-    n = 52
-    # Big scary formula gotten from Stack overflow
-    # This calculates the linear array index from the
-    # upper tiral matrix index which is what we in effect have
-    assert id1 != id2
-    if id1 > id2:
-        id1, id2 = id2, id1
-    i = id1
-    j = id2
-    return int((n * (n - 1) / 2) - (n - i) * ((n - i) - 1) / 2 + j - i - 1)
-
-
-def hole_card_ids_from_pair_idx(idx: int) -> Tuple[int, int]:
-    """
-    Computes the ids of the cards from the hole pair index
-    """
-    n = 52
-
-    # Big scary formula gotten from Stack overflow
-    # Calculates the upper triangular matrix index (i, j)
-    # given the linear array index
-    i = int(n - 2 - np.floor(np.sqrt(-8 * idx + 4 * n * (n - 1) - 7) / 2.0 - 0.5))
-    j = int(idx + i + 1 - n * (n - 1) / 2 + (n - i) * ((n - i) - 1) / 2)
-
-    return (i, j)
+HOLE_PAIR_INDICES = [i for i in range(1326)]
 
 
 class Card:
@@ -84,6 +55,48 @@ class Card:
 
     def __eq__(self, other):
         return self.id == other.id
+
+
+def hole_pair_idx_from_ids(id1: int, id2: int) -> int:
+    """
+    Computes the index of the hole pair from the ids of the cards
+    """
+    n = 52
+    # Big scary formula gotten from Stack overflow
+    # This calculates the linear array index from the
+    # upper tiral matrix index which is what we in effect have
+    assert id1 != id2
+    if id1 > id2:
+        id1, id2 = id2, id1
+    i = id1
+    j = id2
+    return int((n * (n - 1) / 2) - (n - i) * ((n - i) - 1) / 2 + j - i - 1)
+
+
+def hole_pair_idx_from_hand(hand: List[Card]) -> int:
+    """
+    Helper function to wrap the more primitive function
+    hole_pair_idx_from_ids
+    """
+    if len(hand) != 2:
+        raise ValueError("Hand must have two cards")
+
+    return hole_pair_idx_from_ids(hand[0].id, hand[1].id)
+
+
+def hole_card_ids_from_pair_idx(idx: int) -> Tuple[int, int]:
+    """
+    Computes the ids of the cards from the hole pair index
+    """
+    n = 52
+
+    # Big scary formula gotten from Stack overflow
+    # Calculates the upper triangular matrix index (i, j)
+    # given the linear array index
+    i = int(n - 2 - np.floor(np.sqrt(-8 * idx + 4 * n * (n - 1) - 7) / 2.0 - 0.5))
+    j = int(idx + i + 1 - n * (n - 1) / 2 + (n - i) * ((n - i) - 1) / 2)
+
+    return (i, j)
 
 
 class Deck:

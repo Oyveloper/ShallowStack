@@ -1,6 +1,9 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from shallowstack.game.action import ActionType, Action
-from shallowstack.poker.card import Card
+
+if TYPE_CHECKING:
+    from shallowstack.state_manager import GameState
+    from shallowstack.poker.card import Card
 
 
 class Player(object):
@@ -9,7 +12,7 @@ class Player(object):
         self.name = name
         self.chips = chips
 
-    def get_action(self, legal_actions: List[ActionType]) -> Action:
+    def get_action(self, game_state: "GameState") -> Action:
         """
         This is where the player must make a decision
         """
@@ -18,7 +21,7 @@ class Player(object):
     def add_chips(self, amount: int):
         self.chips += amount
 
-    def receive_cards(self, hand: List[Card]):
+    def receive_cards(self, hand: List["Card"]):
         """
         Gives the player a hand of cards
         """
