@@ -7,10 +7,11 @@ if TYPE_CHECKING:
 
 
 class Player(object):
-    def __init__(self, name: str, chips: int = 1000):
+    def __init__(self, name: str, player_index: int, chips: int = 1000):
         self.hand: List[Card] = []
         self.name = name
         self.chips = chips
+        self.went_all_in = False
 
     def get_action(self, game_state: "GameState") -> Action:
         """
@@ -38,3 +39,12 @@ class Player(object):
         Performs the bet amount
         """
         self.chips -= amount
+
+    def prepare_for_new_round(self):
+        """
+        Allows player types to cleanup internal state
+        before a new round
+        """
+        self.went_all_in = False
+        # TODO: fix this for later
+        self.chips = 1000

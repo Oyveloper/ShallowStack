@@ -3,8 +3,8 @@ from enum import Enum
 
 class ActionType(Enum):
     FOLD = 0
-    CHECK = 1
-    CALL = 2
+    CALL = 1
+    CHECK = 2
     ALL_IN = 3
     RAISE = 4
 
@@ -22,8 +22,8 @@ ALLOWED_RAISES = [
 
 AGENT_ACTIONS = [
     Action(ActionType.FOLD),
-    Action(ActionType.CHECK),
     Action(ActionType.CALL),
+    Action(ActionType.CHECK),
     Action(ActionType.ALL_IN),
     Action(ActionType.RAISE, 5),
     Action(ActionType.RAISE, 10),

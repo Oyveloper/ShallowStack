@@ -6,6 +6,10 @@ from shallowstack.player.resolve_player import ResolvePlayer
 from shallowstack.poker.card import Card
 from shallowstack.poker.poker_oracle import PokerOracle
 
+import debugpy
+
+DEBUG = False
+
 
 def generate_cheat_sheet():
     PokerOracle.generate_hand_win_probabilities(nbr_iterations=1000)
@@ -25,8 +29,12 @@ def show_cheat_sheet():
 
 
 def main():
-    player1 = Human("Player 1")
-    player2 = ResolvePlayer("Player 2")
+    player1 = ResolvePlayer("Player 1", 0)
+    player2 = Human("Player 2", 1)
+
+    if DEBUG:
+        debugpy.listen(5678)
+        debugpy.wait_for_client()
 
     game = GameManager([player1, player2])
 
@@ -42,5 +50,9 @@ if __name__ == "__main__":
             show_cheat_sheet()
         elif a0 == "gen_hand_types":
             PokerOracle.gen_hand_types()
+        elif a0 == "debug":
+            DEBUG = True
+            main()
+
     else:
         main()

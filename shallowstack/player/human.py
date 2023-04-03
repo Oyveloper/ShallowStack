@@ -4,11 +4,10 @@ from shallowstack.state_manager.state_manager import StateManager, GameState
 
 
 class Human(Player):
-    def __init__(self, name: str, chips: int = 1000):
-        super().__init__(name, chips)
+    def __init__(self, name: str, player_index: int, chips: int = 1000):
+        super().__init__(name, player_index, chips)
 
     def get_action(self, game_state: GameState) -> Action:
-
         legal_actions = StateManager.get_legal_actions(game_state)
 
         print(f"Player: {self.name} must chose an action")
@@ -22,7 +21,9 @@ class Human(Player):
         action_index = 0
         while not has_action:
             try:
-                action_index = int(input("Enter Action: "))
+                action_input = input("Enter Action: ")
+                print(action_input)
+                action_index = int(action_input)
                 assert action_index in range(len(legal_actions))
                 has_action = True
             except KeyboardInterrupt:

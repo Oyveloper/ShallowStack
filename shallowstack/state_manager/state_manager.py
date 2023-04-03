@@ -10,6 +10,7 @@ from shallowstack.poker.poker_oracle import PokerOracle
 
 BET_PER_STAGE_LIMIT = 2
 
+
 class PokerGameStage(Enum):
     PRE_FLOP = 1
     FLOP = 2
@@ -17,10 +18,12 @@ class PokerGameStage(Enum):
     RIVER = 4
     SHOWDOWN = 5
 
+
 class PokerGameStateType(Enum):
     PLAYER = 0
     DEALER = 1
     WINNER = 2
+
 
 class GameState:
     def __init__(
@@ -35,10 +38,11 @@ class GameState:
         bet_to_match: int,
         public_cards: List[Card],
         deck: Deck,
-        stage_finished: bool,
         game_state_type: PokerGameStateType = PokerGameStateType.PLAYER,
         winner: Optional[Player] = None,
+        winner_index: int = -1,
         stage_bet_count: int = 0,
+        last_action: Optional[Action] = None,
     ):
         self.deck = deck
         self.stage = stage
@@ -50,16 +54,34 @@ class GameState:
         self.bet_to_match = bet_to_match
         self.pot = pot
         self.public_cards = public_cards
-        self.stage_finished = stage_finished
         self.game_state_type = game_state_type
-        self.winner = winner
+        self.winner: Optional[Player] = winner
+        self.winner_index: int = winner_index
         self.stage_bet_count = stage_bet_count
+        self.last_action = last_action
 
     def copy(self):
         return copy.deepcopy(self)
 
     def increment_player_index(self):
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
+
+    def reset_for_new_round(self):
+        # reset game state
+        self.pot = 0
+        self.bet_to_match = 0
+        self.player_bets = np.zeros(len(self.players))
+        self.player_checks = np.zeros(len(self.players))
+        self.players_in_game = np.ones(len(self.players))
+        self.deck = Deck()
+        self.stage = PokerGameStage.PRE_FLOP
+        self.public_cards = []
+        self.game_state_type = PokerGameStateType.PLAYER
+        self.winner = None
+        self.stage_bet_count = 0
+        for player in self.players:
+            player.prepare_for_new_round()
+
 
 class StateManager:
     @staticmethod
@@ -90,7 +112,6 @@ class StateManager:
 
         result = []
         for action_type in action_types:
-
             # Generalize the generation so that we can have a fixed
             # amount of allowed raises exposed to re-solvers
             amounts = [0]
@@ -121,12 +142,15 @@ class StateManager:
 
         elif action.action_type == ActionType.CALL:
             diff = s.bet_to_match - s.player_bets[s.current_player_index]
+
             player = s.players[s.current_player_index]
             if player.can_afford_bet(diff):
                 s.player_bets[s.current_player_index] += diff
                 player.bet_chips(diff)
                 s.pot += diff
-            player.bet_chips(diff)
+                s.player_checks[s.current_player_index] = True
+        elif action.action_type == ActionType.CHECK:
+            s.player_checks[s.current_player_index] = True
 
         elif action.action_type == ActionType.RAISE:
             pot_raised = True
@@ -140,25 +164,29 @@ class StateManager:
                 player.bet_chips(total)
                 s.pot += total
                 s.bet_to_match = s.player_bets[s.current_player_index]
-                s.stage_bet_count += 1
-
-        elif action.action_type == ActionType.CHECK:
-            s.player_checks[s.current_player_index] = True
 
         elif action.action_type == ActionType.ALL_IN:
             player = s.players[s.current_player_index]
             s.player_bets[s.current_player_index] += player.chips
             s.pot += player.chips
+            s.bet_to_match = s.player_bets[s.current_player_index]
             player.bet_chips(player.chips)
             s.player_checks[s.current_player_index] = False
             pot_raised = True
 
+            player.went_all_in = True
+
         if pot_raised:
             s.player_checks = np.zeros(len(s.players), dtype=bool)
+            s.player_checks[s.current_player_index] = True
+            s.stage_bet_count += 1
         if np.all(s.player_checks == s.players_in_game):
             s.game_state_type = PokerGameStateType.DEALER
         if np.sum(s.players_in_game) == 1:
             s = StateManager.find_winner(s)
+
+        s.last_action = action
+        s.increment_player_index()
         return s
 
     @staticmethod
@@ -170,23 +198,24 @@ class StateManager:
         bet_to_match = np.max(state.player_bets)
         player_bet = state.player_bets[state.current_player_index]
 
-        diff = bet_to_match - player_bet
-        can_afford_check = state.players[state.current_player_index].can_afford_bet(
-            diff
-        )
-        if player_bet == bet_to_match:
+        diff = max(0, bet_to_match - player_bet)
+        player = state.players[state.current_player_index]
+        can_afford_call = player.can_afford_bet(diff)
+
+        if diff == 0 or player.went_all_in:
             actions.append(ActionType.CHECK)
 
-        elif can_afford_check:
+        if can_afford_call and not state.player_checks[state.current_player_index]:
             actions.append(ActionType.CALL)
 
         # Check if they can afford the bare minimum raise
-        can_afford_raise = state.players[state.current_player_index].can_afford_bet(
-            max(0, diff) + 1
-        )
+        can_afford_raise = player.can_afford_bet(max(0, diff) + 1)
 
         if can_afford_raise and state.stage_bet_count < BET_PER_STAGE_LIMIT:
-            actions += [ActionType.RAISE, ActionType.ALL_IN]
+            actions.append(ActionType.RAISE)
+
+        if player.chips > 0 and state.stage_bet_count < BET_PER_STAGE_LIMIT:
+            actions.append(ActionType.ALL_IN)
 
         return actions
 
@@ -196,14 +225,16 @@ class StateManager:
         finds the winner of the current state, and returns modified gamestate
         """
         s = state.copy()
-        remaining_players: List[Player] = [s.players[i] for i in range(len(s.players)) if s.players_in_game[i]]
+        remaining_players: List[Player] = [
+            s.players[i] for i in range(len(s.players)) if s.players_in_game[i]
+        ]
         hands = [p.hand for p in remaining_players]
         winner_index = PokerOracle.get_winner(hands, s.public_cards)
         s.winner = remaining_players[winner_index]
+        s.winner_index = winner_index
         s.game_state_type = PokerGameStateType.WINNER
 
         return s
-
 
     @staticmethod
     def progress_stage(state: GameState, deck: Deck) -> GameState:
@@ -212,18 +243,16 @@ class StateManager:
         """
         s = state.copy()
         s.player_checks = np.zeros(len(s.players), dtype=bool)
+        s.player_checks[s.current_player_index] = True
         s.game_state_type = PokerGameStateType.PLAYER
         s.stage_bet_count = 0
         if s.stage == PokerGameStage.PRE_FLOP:
-            print("Moving on to FLOP. Dealing cards...")
             s.stage = PokerGameStage.FLOP
             s.public_cards = deck.draw(3)
         elif s.stage == PokerGameStage.FLOP:
-            print("Moving on to TURN. Dealing cards...")
             s.stage = PokerGameStage.TURN
             s.public_cards += deck.draw(1)
         elif s.stage == PokerGameStage.TURN:
-            print("Moving on to RIVER. Dealing cards...")
             s.stage = PokerGameStage.RIVER
             s.public_cards += deck.draw(1)
         elif s.stage == PokerGameStage.RIVER:

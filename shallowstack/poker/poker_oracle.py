@@ -51,6 +51,14 @@ class PokerOracle:
             h1_ids = hole_card_ids_from_pair_idx(i)
             hand = [Card.from_id(h1_ids[0]), Card.from_id(h1_ids[1])]
 
+            duplicate_cards = False
+            for card in hand:
+                if card in public_cards:
+                    duplicate_cards = True
+
+            if duplicate_cards:
+                continue
+
             hand_strenghts[i] = PokerOracle.evaluate_hand(hand + public_cards)
 
         m = np.sign(-np.subtract.outer(hand_strenghts, hand_strenghts))
@@ -219,7 +227,7 @@ class PokerOracle:
         return win_rates
 
     @staticmethod
-    def get_winner(hands: List[List[Card]], public_cards: List[Card]) -> int:
+    def get_winner(hands: List[List[Card]], public_cards: List[Card]) -> np.intp:
         """
         Returns the index of the winner of the given hands
         """
@@ -227,7 +235,6 @@ class PokerOracle:
 
         # lower rank => better hand
         return np.argmin(hand_ranks)
-
 
     @staticmethod
     def evaluate_hand(hand: List[Card]) -> int:

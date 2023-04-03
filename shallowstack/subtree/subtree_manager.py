@@ -1,13 +1,20 @@
 from enum import Enum
 from typing import List, Optional, Tuple
+
 import numpy as np
+
 from shallowstack.game.action import AGENT_ACTIONS, Action, agent_action_index
-from shallowstack.state_manager import GameState, PokerGameStage
-from shallowstack.poker.card import HOLE_PAIR_INDICES, Card, Deck
+from shallowstack.poker.card import (
+    Card,
+    HOLE_PAIR_INDICES,
+    hole_pair_idx_from_ids,
+)
 from shallowstack.poker.poker_oracle import PokerOracle
+from shallowstack.state_manager import GameState, PokerGameStage
 from shallowstack.state_manager.state_manager import PokerGameStateType, StateManager
 
 NBR_EVENTS = 5
+AVG_POT_SIZE = 200
 
 
 class NodeType(Enum):
@@ -28,6 +35,7 @@ class SubtreeNode:
         strategy: np.ndarray,
         utility_matrix: np.ndarray,
         regrets: np.ndarray,
+        values: np.ndarray,
     ) -> None:
         self.stage = stage
         self.state = state
@@ -37,6 +45,15 @@ class SubtreeNode:
         self.children: List[Tuple[Action, SubtreeNode]] = []
         self.utility_matrix = utility_matrix
         self.regrets = regrets
+        self.values = values
+
+    def __str__(self, level=0, action=None) -> str:
+        res = "\t" * level + f"{action} -> " + f"{self.node_type}\n"
+        for action, child in self.children:
+            act = action.action_type if action is not None else None
+
+            res += child.__str__(level + 1, act)
+        return res
 
 
 class SubtreeManager:
@@ -79,9 +96,11 @@ class SubtreeManager:
             strategy,
             utility_matrix,
             np.zeros((1326, len(AGENT_ACTIONS))),
+            np.zeros((2, 1326)),
         )
         self.end_stage = end_stage
         self.end_depth = end_depth
+        self.root_player_index = state.current_player_index
 
         self.generate_initial_sub_tree(self.root)
 
@@ -90,7 +109,7 @@ class SubtreeManager:
         Generates the initial subtree from a given node
         """
         self.generate_children(node)
-        for (_, child) in node.children:
+        for _, child in node.children:
             self.generate_initial_sub_tree(child)
 
     def generate_children(self, node: SubtreeNode):
@@ -107,7 +126,7 @@ class SubtreeManager:
             node.state, NBR_EVENTS
         )
 
-        for (action, new_state) in child_states:
+        for action, new_state in child_states:
             depth = node.depth + 1 if node.stage == new_state.stage else 0
             node_type = NodeType.PLAYER
             utility_matrix = node.utility_matrix.copy()
@@ -116,9 +135,14 @@ class SubtreeManager:
                 node_type = NodeType.SHOWDOWN
             elif new_state.game_state_type == PokerGameStateType.WINNER:
                 node_type = NodeType.WON
-            elif new_state.stage == self.end_stage and depth == self.end_depth:
+            elif new_state.stage.value > self.end_stage.value or (
+                new_state.stage == self.end_stage and depth == self.end_depth
+            ):
                 node_type = NodeType.TERMINAL
-            elif new_state.stage_finished:
+                utility_matrix = PokerOracle.calculate_utility_matrix(
+                    new_state.public_cards
+                )
+            elif new_state.game_state_type == PokerGameStateType.DEALER:
                 node_type = NodeType.CHANCE
                 utility_matrix = PokerOracle.calculate_utility_matrix(
                     new_state.public_cards
@@ -132,6 +156,7 @@ class SubtreeManager:
                 node.strategy,
                 utility_matrix,
                 node.regrets.copy(),
+                node.values.copy(),
             )
             node.children.append((action, new_node))
 
@@ -156,7 +181,7 @@ class SubtreeManager:
                 child.state = s.copy()
                 self.refresh_chance_node(child, utility_matrix)
         elif utility_matrix is not None:
-            for (_, child) in node.children:
+            for _, child in node.children:
                 child.utility_matrix = utility_matrix
                 self.refresh_chance_node(child, utility_matrix)
 
@@ -166,24 +191,47 @@ class SubtreeManager:
         """
         Performs a rollout from a given node in the subtree
         """
+        # Initialize vectors to be overridden
         v1, v2 = np.zeros_like(r1), np.zeros_like(r2)
+
+        if np.any(np.isnan(r1)) or np.any(np.isnan(r2)):
+            print("found nan range!")
         match node.node_type:
             case NodeType.SHOWDOWN:
                 v1 = node.utility_matrix @ r2.T
-                v2 = -r2 @ node.utility_matrix
+                v2 = -r1 @ node.utility_matrix
+
+                v1 *= node.state.pot / AVG_POT_SIZE
+                v2 *= node.state.pot / AVG_POT_SIZE
+
+            case NodeType.WON:
+                if node.state.winner_index == node.state.current_player_index:
+                    v1 = np.ones_like(v1)
+                    v2 = -np.ones_like(v2)
+                else:
+                    v1 = -1 * np.ones_like(v1)
+                    v2 = np.ones_like(v2)
+
+                v1 *= node.state.pot / AVG_POT_SIZE
+                v2 *= node.state.pot / AVG_POT_SIZE
 
             case NodeType.TERMINAL:
                 # TODO: evaluate this with a neural network!
                 v1 = node.utility_matrix @ r2.T
-                v2 = -r2 @ node.utility_matrix
-            case NodeType.PLAYER:
+                v2 = -r1 @ node.utility_matrix
 
+                v1 *= node.state.pot / AVG_POT_SIZE
+                v2 *= node.state.pot / AVG_POT_SIZE
+            case NodeType.PLAYER:
                 ranges = [r1, r2]
-                player_index = node.state.current_player_index
+
+                player_index = (
+                    node.state.current_player_index + self.root_player_index
+                ) % 2
 
                 r_p = ranges[player_index]
                 r_o = ranges[1 - player_index]
-                for (action, child) in node.children:
+                for action, child in node.children:
                     a = agent_action_index(action)
                     r_p_a = SubtreeManager.bayesian_range_update(r_p, node.strategy, a)
                     r_o_a = r_o
@@ -200,35 +248,83 @@ class SubtreeManager:
                     for h in HOLE_PAIR_INDICES:
                         v1[h] += node.strategy[h, a] * v1_a[h]
                         v2[h] += node.strategy[h, a] * v2_a[h]
+
             case NodeType.CHANCE:
-                self.refresh_chance_node(node)
+                # self.refresh_chance_node(node)
                 S = len(node.children)
-                for (_, child) in node.children:
+                for _, child in node.children:
                     r1_e, r2_e = r1, r2
+                    r1_e = SubtreeManager.update_range_from_public_cards(
+                        r1_e, node.state.public_cards
+                    )
+                    r2_e = SubtreeManager.update_range_from_public_cards(
+                        r2_e, node.state.public_cards
+                    )
+
                     v1_e, v2_e = self.subtree_traversal_rollout(child, r1_e, r2_e)
-                    for h in HOLE_PAIR_INDICES:
-                        v1[h] += v1_e[h] / S
-                        v2[h] += v2_e[h] / S
+                    v1 += v1_e
+                    v2 += v2_e
+
+                v1 = v1 / S
+                v2 = v2 / S
+
+        node.values = np.array([v1, v2])
 
         return v1, v2
 
     def update_strategy_at_node(self, node: SubtreeNode):
-        for (_, child) in node.children:
+        for _, child in node.children:
             self.update_strategy_at_node(child)
         if node.node_type == NodeType.PLAYER:
             R_t = node.regrets
+            player_index = (
+                node.state.current_player_index + self.root_player_index
+            ) % 2
             for h in HOLE_PAIR_INDICES:
-                for (action, child) in node.children:
+                node_value = node.values[player_index][h]
+                for action, child in node.children:
                     a = agent_action_index(action)
-                    R_t[h, a] += 1
+                    child_value = child.values[player_index][h]
+                    R_t[h, a] += child_value - node_value
+            node.regrets = R_t
             R_plus = np.clip(R_t, 0, None)
             R_plus_sum = np.sum(R_plus, axis=1)
-            node.strategy = R_plus / R_plus_sum[:, None]
+
+            divisor = R_plus_sum[:, None]
+
+            # Adding this to avoid the division by 0
+            divisor[np.where(divisor == 0)] = 1 / R_t.shape[1]
+
+            node.strategy = R_plus / divisor
+
             return node.strategy
 
     @staticmethod
     def bayesian_range_update(
         range: np.ndarray, strategy: np.ndarray, action_index: int
     ):
-        p_action = np.sum(strategy[:, action_index]) / np.sum(strategy)
-        return range * strategy[:, action_index] / p_action
+        p_action = np.sum(strategy[:, action_index]) / np.sum(strategy) + 0.0001
+
+        if not p_action > 0:
+            print("found zero action prob")
+            print(np.sum(strategy))
+
+        res = range * strategy[:, action_index] / p_action
+        return res
+
+    @staticmethod
+    def update_range_from_public_cards(
+        r: np.ndarray, new_public_cards: List[Card]
+    ) -> np.ndarray:
+        """
+        Updates the ranges to reflect the new public cards
+        """
+        r = r.copy()
+        for card in new_public_cards:
+            c_id = card.id
+            for other_card_id in range(52):
+                if c_id == other_card_id:
+                    continue
+                hole_pair_idx = hole_pair_idx_from_ids(c_id, other_card_id)
+                r[hole_pair_idx] = 0
+        return r

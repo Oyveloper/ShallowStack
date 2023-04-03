@@ -4,8 +4,12 @@ from shallowstack.game.action import ActionType
 
 from shallowstack.player.player import Player
 from shallowstack.poker.card import Deck
-from shallowstack.state_manager.state_manager import GameState, PokerGameStage, PokerGameStateType, StateManager
-
+from shallowstack.state_manager.state_manager import (
+    GameState,
+    PokerGameStage,
+    PokerGameStateType,
+    StateManager,
+)
 
 
 class GameManager:
@@ -26,16 +30,6 @@ class GameManager:
         self.small_blind = 1
         self.big_blind = 2 % len(players)
 
-        self.start_game()
-
-
-    def start_game(self):
-        """
-        This is where we start a new game of poker
-        """
-        print()
-        print("Starting a new round!")
-        # reset game state
         self.game_state = GameState(
             PokerGameStage.PRE_FLOP,
             self.players,
@@ -47,8 +41,18 @@ class GameManager:
             0,
             [],
             Deck(),
-            False,
         )
+
+        self.start_game()
+
+    def start_game(self):
+        """
+        This is where we start a new game of poker
+        """
+        print()
+        print("Starting a new round!")
+        # REset for new game
+        self.game_state.reset_for_new_round()
 
         # initiate the game by claiming the blinds
         self.claim_blinds()
@@ -63,15 +67,15 @@ class GameManager:
             if self.game_state.game_state_type == PokerGameStateType.WINNER:
                 break
             elif self.game_state.game_state_type == PokerGameStateType.DEALER:
-                self.game_state = StateManager.progress_stage(self.game_state, self.game_state.deck)
+                self.game_state = StateManager.progress_stage(
+                    self.game_state, self.game_state.deck
+                )
                 continue
 
             if self.game_state.stage == PokerGameStage.SHOWDOWN:
                 self.game_state = StateManager.find_winner(self.game_state)
                 break
 
-
-            self.game_state.increment_player_index()
             print()
 
             # Checks to see how game should progress
@@ -81,11 +85,8 @@ class GameManager:
                 # Skip folded players
                 continue
 
-
-
             # Player needs to do action
             player = self.players[self.game_state.current_player_index]
-
 
             # Select acition and execute
             action = player.get_action(self.game_state)
@@ -99,13 +100,20 @@ class GameManager:
         # Game is over
         # Announce winner
         winner = self.game_state.winner
-        print(f"{winner.name} won the game!")
-        print(f"Winnings: {self.game_state.pot}")
-        winner.add_chips(self.game_state.pot)
+        if winner is not None:
+            print(f"{winner.name} won the game!")
+            print(f"Winnings: {self.game_state.pot}")
+            winner.add_chips(self.game_state.pot)
         self.rotate_blinds()
 
         # Start a new round
-        # self.start_game()
+
+        for player in self.players:
+            if player.chips <= 0:
+                print(f"{player.name} is out of chips!")
+                return
+
+        self.start_game()
 
     def claim_blinds(self):
         """
@@ -123,7 +131,7 @@ class GameManager:
 
         self.game_state.pot += self.blind_amount * 3
         self.game_state.bet_to_match = self.blind_amount * 2
-        self.game_state.current_player_index = (self.big_blind) % len(self.players)
+        self.game_state.current_player_index = (self.big_blind + 1) % len(self.players)
 
     def rotate_blinds(self):
         """
