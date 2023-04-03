@@ -1,5 +1,7 @@
 from enum import Enum
 
+from shallowstack.config.config import POKER_CONFIG
+
 
 class ActionType(Enum):
     FOLD = 0
@@ -16,8 +18,8 @@ class Action:
 
 
 ALLOWED_RAISES = [
-    5,
-    10,
+    POKER_CONFIG.getint("SMALL_BLIND"),
+    POKER_CONFIG.getint("BIG_BLIND"),
 ]
 
 AGENT_ACTIONS = [
@@ -25,8 +27,8 @@ AGENT_ACTIONS = [
     Action(ActionType.CALL),
     Action(ActionType.CHECK),
     Action(ActionType.ALL_IN),
-    Action(ActionType.RAISE, 5),
-    Action(ActionType.RAISE, 10),
+    Action(ActionType.RAISE, ALLOWED_RAISES[0]),
+    Action(ActionType.RAISE, ALLOWED_RAISES[1]),
 ]
 
 

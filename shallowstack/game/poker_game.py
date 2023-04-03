@@ -1,5 +1,6 @@
 from typing import List
 import numpy as np
+from shallowstack.config.config import POKER_CONFIG
 from shallowstack.game.action import ActionType
 
 from shallowstack.player.player import Player
@@ -13,7 +14,7 @@ from shallowstack.state_manager.state_manager import (
 
 
 class GameManager:
-    def __init__(self, players: List[Player], blind_amount: int = 5):
+    def __init__(self, players: List[Player]):
         """
         Sets up a new game of poker with a given list of players
         The number of players must be between 2 and 6
@@ -25,7 +26,7 @@ class GameManager:
 
         self.players = players
 
-        self.blind_amount = blind_amount
+        self.blind_amount = POKER_CONFIG.getint("SMALL_BLIND")
 
         self.small_blind = 1
         self.big_blind = 2 % len(players)
@@ -43,7 +44,8 @@ class GameManager:
             Deck(),
         )
 
-        self.start_game()
+    def setup_game(self):
+        pass
 
     def start_game(self):
         """

@@ -30,13 +30,16 @@ def show_cheat_sheet():
 
 def main():
     player1 = ResolvePlayer("Player 1", 0)
-    player2 = Human("Player 2", 1)
+    # player2 = Human("Player 2", 1)
+    player2 = ResolvePlayer("Player 2", 1)
 
     if DEBUG:
         debugpy.listen(5678)
         debugpy.wait_for_client()
 
     game = GameManager([player1, player2])
+
+    game.start_game()
 
 
 if __name__ == "__main__":

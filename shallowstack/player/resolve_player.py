@@ -1,4 +1,5 @@
 import numpy as np
+from shallowstack.config.config import RESOLVER_CONFIG
 from shallowstack.game.action import Action
 from shallowstack.resolver.resolver import Resolver
 from shallowstack.state_manager import GameState, PokerGameStage
@@ -13,18 +14,6 @@ class ResolvePlayer(Player):
 
         self.resolver = Resolver()
 
-    def update_other_player_range(self, game_state: GameState):
-        """
-        Updates r2 with the information provided by last-action
-        """
-
-        if game_state.last_action is None:
-            return
-
-        last_action = game_state.last_action
-
-        # Assume that the other player follows my strategy in this state
-
     def get_action(self, game_state: GameState) -> Action:
         current_stage = game_state.stage
         if current_stage.value < PokerGameStage.RIVER.value:
@@ -32,7 +21,7 @@ class ResolvePlayer(Player):
         else:
             end_stage = PokerGameStage((game_state.stage.value + 1))
 
-        nbr_rollouts = 20
+        nbr_rollouts = RESOLVER_CONFIG.getint("NBR_ROLLOUTS")
 
         action, r1, r2 = self.resolver.resolve(
             game_state, self.r1, self.r2, end_stage, 5, nbr_rollouts

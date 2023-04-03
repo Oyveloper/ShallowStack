@@ -1,12 +1,6 @@
-from typing import List, Tuple
+from typing import Tuple
 import numpy as np
 from shallowstack.game.action import AGENT_ACTIONS, Action
-from shallowstack.poker.card import (
-    HOLE_PAIR_INDICES,
-    Card,
-    hole_pair_idx_from_hand,
-    hole_pair_idx_from_ids,
-)
 
 from shallowstack.state_manager.state_manager import GameState, PokerGameStage
 from shallowstack.subtree.subtree_manager import SubtreeManager
