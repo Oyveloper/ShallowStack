@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class Player(object):
-    def __init__(self, name: str, player_index: int, chips: int = 1000):
+    def __init__(self, name: str, chips: int = 1000):
         self.hand: List[Card] = []
         self.name = name
         self.chips = chips

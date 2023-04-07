@@ -7,8 +7,8 @@ from shallowstack.player.player import Player
 
 
 class ResolvePlayer(Player):
-    def __init__(self, name: str, player_index: int, chips: int = 1000):
-        super().__init__(name, player_index, chips)
+    def __init__(self, name: str, chips: int = 1000):
+        super().__init__(name, chips)
         self.r1 = np.ones(1326) / 1326
         self.r2 = np.ones(1326) / 1326
 

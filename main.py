@@ -1,20 +1,111 @@
-import sys
-
-from shallowstack.game.poker_game import GameManager
-from shallowstack.player.human import Human
+from shallowstack.game.poker_game import PLAYER_CONFIGS, GameManager
+from shallowstack.neural_net.datamodule import PokerDataModule
+from shallowstack.neural_net.neural_net_trainer import NNTrainer
 from shallowstack.player.resolve_player import ResolvePlayer
 from shallowstack.poker.card import Card
 from shallowstack.poker.poker_oracle import PokerOracle
 
 import debugpy
+import click
 
-DEBUG = False
+from shallowstack.state_manager.state_manager import PokerGameStage
 
 
+@click.group()
+@click.option("--debug/--no-debug", default=False)
+def cli(debug: bool):
+    if debug:
+        debugpy.listen(5678)
+        debugpy.wait_for_client()
+
+
+@cli.command()
+@click.option(
+    "--stage",
+    default="RIVER",
+    type=click.Choice([el for el in PokerGameStage.__members__]),
+)
+@click.option(
+    "--size",
+    default=1000,
+    type=click.IntRange(min=1, max=1000000),
+)
+@click.option(
+    "--override/--no-override",
+    default=False,
+    type=click.BOOL,
+)
+def generate_training_data_single_stage(stage: str, size: int, override: bool):
+    try:
+        s = PokerGameStage[stage]
+    except:
+        print("Invalid stage")
+        return
+
+    d = PokerDataModule(s, 1, size, force_override=override)
+    d.setup("")
+
+
+@click.command()
+def generate_training_data():
+    for stage in PokerGameStage:
+        generate_training_data_single_stage(stage.name, 1000, False)
+
+
+@cli.command()
+@click.option(
+    "--stage",
+    default="RIVER",
+    type=click.Choice([el for el in PokerGameStage.__members__]),
+)
+def train_single_network(stage: str):
+    try:
+        s = PokerGameStage[stage]
+    except:
+        print("Invalid stage")
+        return
+
+    nn_trainer = NNTrainer()
+
+    nn_trainer.train_network(s, 1000)
+
+
+@cli.command()
+@click.option(
+    "--epochs",
+    default=1000,
+    type=click.IntRange(min=1, max=1000000),
+)
+@click.option(
+    "--data_size",
+    default=1000,
+    type=click.IntRange(min=1, max=1000000),
+)
+@click.option(
+    "--override_turn/--no-override_turn",
+    default=False,
+    type=click.BOOL,
+)
+def train_all(epochs: int, data_size: int, override_turn: bool):
+    nn_trainer = NNTrainer()
+    nn_trainer.train_all_networks(epochs, data_size, override_turn)
+
+
+@cli.command()
+def test_stuff():
+    data = PokerDataModule(PokerGameStage.RIVER, 1)
+    data.setup("")
+
+    i = iter(data.train_dataloader())
+    print(next(i))
+
+
+@cli.command()
 def generate_cheat_sheet():
     PokerOracle.generate_hand_win_probabilities(nbr_iterations=1000)
 
 
+@cli.command()
 def show_cheat_sheet():
     table = PokerOracle.get_lookup_table()
     print(table)
@@ -28,34 +119,19 @@ def show_cheat_sheet():
     print(f"index is {idx}")
 
 
-def main():
-    player1 = ResolvePlayer("Player 1", 0)
-    # player2 = Human("Player 2", 1)
-    player2 = ResolvePlayer("Player 2", 1)
-
-    if DEBUG:
-        debugpy.listen(5678)
-        debugpy.wait_for_client()
-
-    game = GameManager([player1, player2])
+@cli.command()
+@click.option(
+    "--player_setup", type=click.Choice(list(PLAYER_CONFIGS.keys())), default="HRes"
+)
+def game(player_setup: str):
+    """
+    Starts a game with the given player setup
+    """
+    players = PLAYER_CONFIGS[player_setup]
+    game = GameManager(players)
 
     game.start_game()
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    print(args)
-    if len(args) > 0:
-        a0 = args[0]
-        if a0 == "cheat_sheet":
-            generate_cheat_sheet()
-        elif a0 == "show_cheat_sheet":
-            show_cheat_sheet()
-        elif a0 == "gen_hand_types":
-            PokerOracle.gen_hand_types()
-        elif a0 == "debug":
-            DEBUG = True
-            main()
-
-    else:
-        main()
+    cli()

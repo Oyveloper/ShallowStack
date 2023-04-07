@@ -4,6 +4,8 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from shallowstack.game.action import AGENT_ACTIONS, Action, agent_action_index
+from shallowstack.neural_net.neural_net_manager import NNManager
+from shallowstack.neural_net.util import create_input_vector
 from shallowstack.poker.card import (
     Card,
     HOLE_PAIR_INDICES,
@@ -103,6 +105,10 @@ class SubtreeManager:
         self.root_player_index = state.current_player_index
 
         self.generate_initial_sub_tree(self.root)
+
+        # initialize the neural net module
+
+        self.nn_manager = NNManager()
 
     def generate_initial_sub_tree(self, node: SubtreeNode):
         """
@@ -216,12 +222,11 @@ class SubtreeManager:
                 v2 *= node.state.pot / AVG_POT_SIZE
 
             case NodeType.TERMINAL:
-                # TODO: evaluate this with a neural network!
-                v1 = node.utility_matrix @ r2.T
-                v2 = -r1 @ node.utility_matrix
-
-                v1 *= node.state.pot / AVG_POT_SIZE
-                v2 *= node.state.pot / AVG_POT_SIZE
+                network = self.nn_manager.get_network(node.state.stage)
+                in_vector = create_input_vector(
+                    r1, r2, node.state.public_cards, node.state.pot
+                )
+                v1, v2 = network.predict_values(in_vector)
             case NodeType.PLAYER:
                 ranges = [r1, r2]
 

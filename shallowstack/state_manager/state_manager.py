@@ -183,7 +183,9 @@ class StateManager:
         if np.all(s.player_checks == s.players_in_game):
             s.game_state_type = PokerGameStateType.DEALER
         if np.sum(s.players_in_game) == 1:
-            s = StateManager.find_winner(s)
+            s.game_state_type = PokerGameStateType.WINNER
+            s.winner_index = int(np.argmax(s.players_in_game))
+            s.winner = s.players[s.winner_index]
 
         s.last_action = action
         s.increment_player_index()

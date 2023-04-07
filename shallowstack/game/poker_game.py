@@ -3,7 +3,7 @@ import numpy as np
 from shallowstack.config.config import POKER_CONFIG
 from shallowstack.game.action import ActionType
 
-from shallowstack.player.player import Player
+from shallowstack.player import Player, Human, ResolvePlayer
 from shallowstack.poker.card import Deck
 from shallowstack.state_manager.state_manager import (
     GameState,
@@ -11,6 +11,16 @@ from shallowstack.state_manager.state_manager import (
     PokerGameStateType,
     StateManager,
 )
+
+
+PLAYER_CONFIGS = {
+    "HH": [
+        Human("Player 1"),
+        Human("Player 2"),
+    ],
+    "HRes": [Human("Player 1"), ResolvePlayer("Player 2")],
+    "ResRes": [ResolvePlayer("Player 1"), ResolvePlayer("Player 2")],
+}
 
 
 class GameManager:
