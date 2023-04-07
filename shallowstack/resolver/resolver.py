@@ -15,9 +15,16 @@ class Resolver:
         end_stage: PokerGameStage,
         end_depth: int,
         nbr_rollouts: int,
-    ) -> Tuple[Action, np.ndarray, np.ndarray]:
+    ) -> Tuple[Action, np.ndarray, np.ndarray, np.ndarray]:
         """
         Runs the Re-Solve algorithm to generate an optimal action, and new ranges
+
+        returns tuple:
+            action: Action
+            r1: np.ndarray
+            r2: np.ndarray
+            strategy of new state: np.ndarray
+
         """
         strategy = np.ones((1326, len(AGENT_ACTIONS)))
         strategy /= strategy.sum(axis=1, keepdims=True)
@@ -42,4 +49,28 @@ class Resolver:
 
         print(action_probs)
 
-        return (AGENT_ACTIONS[action_index], r1, r2)
+        action = AGENT_ACTIONS[action_index]
+        oponent_strategy = self.oponent_strategy_estimate_resulting_state(tree, action)
+
+        return (action, r1, r2, oponent_strategy)
+
+    def oponent_strategy_estimate_resulting_state(
+        self, tree: SubtreeManager, action: Action
+    ) -> np.ndarray:
+        """
+        Returns the resulting state after running the opponent strategy estimate algorithm
+
+        We assume that the opponent would think similarly to us, so we jsut return the calculated strategy for
+        the resulting state
+        """
+
+        root = tree.root
+
+        strategy = np.ones((1326, len(AGENT_ACTIONS))) / len(AGENT_ACTIONS)
+
+        for a, child in root.children:
+            if a.action_type == action.action_type:
+                strategy = child.strategy
+                break
+
+        return strategy

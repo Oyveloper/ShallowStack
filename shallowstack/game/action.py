@@ -16,6 +16,9 @@ class Action:
         self.action_type: ActionType = action_type
         self.amount: int = amount
 
+    def __eq__(self, other):
+        return self.action_type == other.action_type and self.amount == other.amount
+
 
 ALLOWED_RAISES = [
     POKER_CONFIG.getint("SMALL_BLIND"),

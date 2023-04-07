@@ -48,3 +48,12 @@ class Player(object):
         self.went_all_in = False
         # TODO: fix this for later
         self.chips = 1000
+
+    def inform_of_action(self, action: Action, player: "Player"):
+        """
+        Interface that allows the game manager to inform
+        players about actions that happened during the game.
+
+        Mainly here to allow resolve player to update ranges
+        """
+        pass

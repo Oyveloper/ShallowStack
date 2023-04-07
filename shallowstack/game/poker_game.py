@@ -15,11 +15,11 @@ from shallowstack.state_manager.state_manager import (
 
 PLAYER_CONFIGS = {
     "HH": [
-        Human("Player 1"),
-        Human("Player 2"),
+        Human("Human 1"),
+        Human("Human2 2"),
     ],
-    "HRes": [Human("Player 1"), ResolvePlayer("Player 2")],
-    "ResRes": [ResolvePlayer("Player 1"), ResolvePlayer("Player 2")],
+    "HRes": [Human("Human"), ResolvePlayer("ResolvePlayer")],
+    "ResRes": [ResolvePlayer("Resolver 1"), ResolvePlayer("Resolver 2")],
 }
 
 
@@ -103,6 +103,8 @@ class GameManager:
             # Select acition and execute
             action = player.get_action(self.game_state)
             self.game_state = StateManager.apply_action(self.game_state, action)
+            for p in self.game_state.players:
+                p.inform_of_action(action, player)
 
             # Display action info
             print(f"Player: {player.name} did: {action.action_type}")
