@@ -67,7 +67,7 @@ def train_single_network(stage: str):
 
     nn_trainer = NNTrainer()
 
-    nn_trainer.train_network(s, 1000)
+    nn_trainer.train_network(s, 100)
 
 
 @cli.command()

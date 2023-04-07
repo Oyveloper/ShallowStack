@@ -153,13 +153,15 @@ class PokerDataModule(pl.LightningDataModule):
         self.train_data, self.val_data = random_split(all, [train_size, val_size])
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.train_data, batch_size=self.batch_size, shuffle=True, num_workers=4
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size)
+        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=4)
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.batch_size)
+        return DataLoader(self.test_data, batch_size=self.batch_size, num_workers=4)
 
     # INternal stuff
 

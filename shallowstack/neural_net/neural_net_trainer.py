@@ -15,7 +15,7 @@ class NNTrainer:
     def train_network(
         self,
         stage: PokerGameStage,
-        max_epochs: int = 1000,
+        max_epochs: int = 100,
         data_size: int = 100,
         override_data: bool = False,
     ):
@@ -40,7 +40,7 @@ class NNTrainer:
         trainer.fit(network, data)
 
     def train_all_networks(
-        self, max_ephochs: int = 1000, data_size: int = 100, override_turn: bool = False
+        self, max_ephochs: int = 100, data_size: int = 100, override_turn: bool = False
     ):
         """
         Trains networks for all stages in a bottom up manner
