@@ -28,7 +28,7 @@ class ResolvePlayer(Player):
 
         nbr_rollouts = RESOLVER_CONFIG.getint("NBR_ROLLOUTS")
 
-        action, self.r1, self.r2, self.oponent_strategy = self.resolver.resolve(
+        action, self.r1, self.r2, self.opponent_strategy = self.resolver.resolve(
             game_state, self.r1, self.r2, end_stage, 5, nbr_rollouts
         )
 
@@ -56,5 +56,5 @@ class ResolvePlayer(Player):
         action_index = AGENT_ACTIONS.index(Action(action_type, closest_amount))
 
         self.r2 = SubtreeManager.bayesian_range_update(
-            self.r2, self.oponent_strategy, action_index
+            self.r2, self.opponent_strategy, action_index
         )

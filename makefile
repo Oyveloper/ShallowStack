@@ -23,7 +23,7 @@ test:
 	poetry run pytest
 
 train:
-	poetry run python3 main.py  train-all --data_size 50 --override_river --epochs 20
+	poetry run python3 main.py  train-all --data_size 500 --override_river --epochs 100
 
 tensorboard:
 	tensorboard --logdir lightning_logs

@@ -32,7 +32,7 @@ class NNTrainer:
             nbr_public_cards = 5
 
         network = ValueNetwork(1326, nbr_public_cards)
-        data = PokerDataModule(stage, 1, data_size, force_override=override_data)
+        data = PokerDataModule(stage, 10, data_size, force_override=override_data)
         trainer = Trainer(
             max_epochs=max_epochs, default_root_dir=f"lightning_logs/{stage.name}"
         )
