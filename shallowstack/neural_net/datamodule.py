@@ -133,6 +133,8 @@ class PokerDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.data_size = data_size
 
+        self.workers = 2
+
         if force_override and os.path.exists(self.data_dir):
             os.chmod(self.data_dir, 0o777)
             shutil.rmtree(self.data_dir, ignore_errors=True)
@@ -154,14 +156,21 @@ class PokerDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_data, batch_size=self.batch_size, shuffle=True, num_workers=4
+            self.train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.workers,
         )
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=4)
+        return DataLoader(
+            self.val_data, batch_size=self.batch_size, num_workers=self.workers
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.batch_size, num_workers=4)
+        return DataLoader(
+            self.test_data, batch_size=self.batch_size, num_workers=self.workers
+        )
 
     # INternal stuff
 

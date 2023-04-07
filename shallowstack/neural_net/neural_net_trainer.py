@@ -40,12 +40,12 @@ class NNTrainer:
         trainer.fit(network, data)
 
     def train_all_networks(
-        self, max_ephochs: int = 100, data_size: int = 100, override_turn: bool = False
+        self, max_ephochs: int = 100, data_size: int = 100, override_river: bool = False
     ):
         """
         Trains networks for all stages in a bottom up manner
         """
-        override = override_turn
+        override = override_river
         for stage in self.training_order:
             print(f"Training network: {stage.name}")
             self.train_network(

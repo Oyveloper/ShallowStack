@@ -49,9 +49,9 @@ class ResolvePlayer(Player):
 
         closest_amount = action.amount
         if action_type == ActionType.RAISE:
-            closest_amount = int(
-                np.argmin(np.abs(action.amount - np.array(ALLOWED_RAISES)))
-            )
+            closest_amount = ALLOWED_RAISES[
+                int(np.argmin(np.abs(action.amount - np.array(ALLOWED_RAISES))))
+            ]
 
         action_index = AGENT_ACTIONS.index(Action(action_type, closest_amount))
 

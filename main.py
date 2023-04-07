@@ -82,13 +82,13 @@ def train_single_network(stage: str):
     type=click.IntRange(min=1, max=1000000),
 )
 @click.option(
-    "--override_turn/--no-override_turn",
+    "--override_river/--no-override_river",
     default=False,
     type=click.BOOL,
 )
-def train_all(epochs: int, data_size: int, override_turn: bool):
+def train_all(epochs: int, data_size: int, override_river: bool):
     nn_trainer = NNTrainer()
-    nn_trainer.train_all_networks(epochs, data_size, override_turn)
+    nn_trainer.train_all_networks(epochs, data_size, override_river)
 
 
 @cli.command()

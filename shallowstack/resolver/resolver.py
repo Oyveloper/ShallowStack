@@ -35,19 +35,18 @@ class Resolver:
 
         strategies = np.zeros((nbr_rollouts, 1326, len(AGENT_ACTIONS)))
         for t in range(nbr_rollouts):
-            tree.subtree_traversal_rollout(tree.root, r1, r2)
+            tree.subtree_traversal_rollout(tree.root, r1, r2, clean=True)
             strategies[t] = tree.update_strategy_at_node(tree.root)
 
         mean_strategy = strategies.mean(axis=0)
 
         action_probs = r1 @ mean_strategy
         action_probs /= np.sum(action_probs)
+        print(action_probs)
 
         action_index = np.random.choice(len(AGENT_ACTIONS), p=action_probs)
 
         r1 = SubtreeManager.bayesian_range_update(r1, mean_strategy, action_index)
-
-        print(action_probs)
 
         action = AGENT_ACTIONS[action_index]
         oponent_strategy = self.oponent_strategy_estimate_resulting_state(tree, action)

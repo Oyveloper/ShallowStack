@@ -1,7 +1,9 @@
 from enum import Enum
-from typing import List, Optional, Tuple
+import random
+from typing import List, Tuple
 
 import numpy as np
+from shallowstack.config.config import RESOLVER_CONFIG
 
 from shallowstack.game.action import AGENT_ACTIONS, Action, agent_action_index
 from shallowstack.neural_net.neural_net_manager import NNManager
@@ -48,6 +50,7 @@ class SubtreeNode:
         self.utility_matrix = utility_matrix
         self.regrets = regrets
         self.values = values
+        self.remove_after_rollout = True
 
     def __str__(self, level=0, action=None) -> str:
         res = "\t" * level + f"{action} -> " + f"{self.node_type}\n"
@@ -116,15 +119,17 @@ class SubtreeManager:
         """
         self.generate_children(node)
         for _, child in node.children:
-            self.generate_initial_sub_tree(child)
+            child.remove_after_rollout = False
+        #     self.generate_initial_sub_tree(child)
 
-    def generate_children(self, node: SubtreeNode):
+    def generate_children(self, node: SubtreeNode, action_limit: int = -1):
         """
         Adds children to the given node based on its state
         relies on the StateManager to generate the legal state/action pairs
 
         For chance nodes there is no action, but child states based on random deals
         """
+
         if node.node_type in [NodeType.SHOWDOWN, NodeType.TERMINAL, NodeType.WON]:
             return
 
@@ -132,7 +137,16 @@ class SubtreeManager:
             node.state, NBR_EVENTS
         )
 
+        random.shuffle(child_states)
+
+        nbr_actions = 0
         for action, new_state in child_states:
+            # Limit child generation
+            if action is not None and action_limit != -1:
+                if nbr_actions >= action_limit:
+                    break
+                nbr_actions += 1
+
             depth = node.depth + 1 if node.stage == new_state.stage else 0
             node_type = NodeType.PLAYER
             utility_matrix = node.utility_matrix.copy()
@@ -166,37 +180,25 @@ class SubtreeManager:
             )
             node.children.append((action, new_node))
 
-    def refresh_chance_node(
-        self,
-        node: SubtreeNode,
-        utility_matrix: Optional[np.ndarray] = None,
-    ):
+    def clean_subtree(self, node: SubtreeNode):
         """
-        Updates a chance node in the already generated seach tree
-
-        It will draw new events for the chance node, and update utility matrix of itself and children
+        Removes nodes that are not needed after a rollout
         """
-        if utility_matrix is None and node.node_type == NodeType.CHANCE:
-            # Starting update from this node
-            generated_states = StateManager.get_child_states(node.state, NBR_EVENTS)
-            for i, (_, child) in enumerate(node.children):
-                s = generated_states[i][1]
-                utility_matrix = PokerOracle.calculate_utility_matrix(s.public_cards)
-
-                child.utility_matrix = utility_matrix
-                child.state = s.copy()
-                self.refresh_chance_node(child, utility_matrix)
-        elif utility_matrix is not None:
+        if node.remove_after_rollout:
+            node.children = []
+        else:
             for _, child in node.children:
-                child.utility_matrix = utility_matrix
-                self.refresh_chance_node(child, utility_matrix)
+                self.clean_subtree(child)
 
     def subtree_traversal_rollout(
-        self, node: SubtreeNode, r1: np.ndarray, r2: np.ndarray
+        self, node: SubtreeNode, r1: np.ndarray, r2: np.ndarray, clean: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs a rollout from a given node in the subtree
         """
+
+        if clean:
+            self.clean_subtree(self.root)
         # Initialize vectors to be overridden
         v1, v2 = np.zeros_like(r1), np.zeros_like(r2)
 
@@ -236,6 +238,11 @@ class SubtreeManager:
 
                 r_p = ranges[player_index]
                 r_o = ranges[1 - player_index]
+
+                # Rollouts generate the tree each time
+                self.generate_children(
+                    node, action_limit=RESOLVER_CONFIG.getint("NBR_ACTIONS_IN_ROLLOUT")
+                )
                 for action, child in node.children:
                     a = agent_action_index(action)
                     r_p_a = SubtreeManager.bayesian_range_update(r_p, node.strategy, a)
@@ -255,7 +262,7 @@ class SubtreeManager:
                         v2[h] += node.strategy[h, a] * v2_a[h]
 
             case NodeType.CHANCE:
-                # self.refresh_chance_node(node)
+                self.generate_children(node)
                 S = len(node.children)
                 for _, child in node.children:
                     r1_e, r2_e = r1, r2
