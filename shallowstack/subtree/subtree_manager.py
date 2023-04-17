@@ -50,7 +50,6 @@ class SubtreeNode:
         self.utility_matrix = utility_matrix
         self.regrets = regrets
         self.values = values
-        self.remove_after_rollout = True
 
     def __str__(self, level=0, action=None) -> str:
         res = "\t" * level + f"{action} -> " + f"{self.node_type}\n"
@@ -118,9 +117,6 @@ class SubtreeManager:
         Generates the initial subtree from a given node
         """
         self.generate_children(node)
-        for _, child in node.children:
-            child.remove_after_rollout = False
-        #     self.generate_initial_sub_tree(child)
 
     def generate_children(self, node: SubtreeNode, action_limit: int = -1):
         """
@@ -151,6 +147,10 @@ class SubtreeManager:
             node_type = NodeType.PLAYER
             utility_matrix = node.utility_matrix.copy()
 
+            if action is not None and action in [a for a, _ in node.children]:
+                # Child state is already added
+                continue
+
             if new_state.stage == PokerGameStage.SHOWDOWN:
                 node_type = NodeType.SHOWDOWN
             elif new_state.game_state_type == PokerGameStateType.WINNER:
@@ -180,25 +180,12 @@ class SubtreeManager:
             )
             node.children.append((action, new_node))
 
-    def clean_subtree(self, node: SubtreeNode):
-        """
-        Removes nodes that are not needed after a rollout
-        """
-        if node.remove_after_rollout:
-            node.children = []
-        else:
-            for _, child in node.children:
-                self.clean_subtree(child)
-
     def subtree_traversal_rollout(
         self, node: SubtreeNode, r1: np.ndarray, r2: np.ndarray, clean: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs a rollout from a given node in the subtree
         """
-
-        if clean:
-            self.clean_subtree(self.root)
         # Initialize vectors to be overridden
         v1, v2 = np.zeros_like(r1), np.zeros_like(r2)
 
@@ -240,10 +227,9 @@ class SubtreeManager:
                 r_o = ranges[1 - player_index]
 
                 # Rollouts generate the tree each time
-                self.generate_children(
-                    node, action_limit=RESOLVER_CONFIG.getint("NBR_ACTIONS_IN_ROLLOUT")
-                )
-                for action, child in node.children:
+                nbr_actions = RESOLVER_CONFIG.getint("NBR_ACTIONS_IN_ROLLOUT")
+                self.generate_children(node, action_limit=nbr_actions)
+                for action, child in node.children[-nbr_actions:]:
                     a = agent_action_index(action)
                     r_p_a = SubtreeManager.bayesian_range_update(r_p, node.strategy, a)
                     r_o_a = r_o
