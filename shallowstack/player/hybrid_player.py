@@ -10,7 +10,13 @@ from shallowstack.subtree.subtree_manager import SubtreeManager
 
 
 class HybridPlayer(Player):
-    def __init__(self, name: str, chips: int = 1000, resolve_probability: float = 0.5):
+    def __init__(
+        self,
+        name: str,
+        chips: int = 1000,
+        resolve_probability: float = 0.5,
+        show_internals: bool = False,
+    ):
         super().__init__(name, chips)
 
         self.r1 = np.ones(1326) / 1326
@@ -23,6 +29,7 @@ class HybridPlayer(Player):
         self.resolver = Resolver()
 
         self.resolve_probability = resolve_probability
+        self.show_internals = show_internals
 
     def get_action(self, game_state: GameState) -> Action:
         """
@@ -76,7 +83,13 @@ class HybridPlayer(Player):
         nbr_rollouts = RESOLVER_CONFIG.getint("NBR_ROLLOUTS")
 
         action, self.r1, self.r2, self.opponent_strategy = self.resolver.resolve(
-            game_state, self.r1, self.r2, end_stage, 5, nbr_rollouts
+            game_state,
+            self.r1,
+            self.r2,
+            end_stage,
+            5,
+            nbr_rollouts,
+            self.show_internals,
         )
 
         return action
@@ -89,8 +102,6 @@ class HybridPlayer(Player):
     def inform_of_action(self, action: Action, player: Player):
         if player.name == self.name:
             return
-
-        print("Updating oponent range!")
 
         action_type = action.action_type
 

@@ -15,6 +15,7 @@ class Resolver:
         end_stage: PokerGameStage,
         end_depth: int,
         nbr_rollouts: int,
+        show_action_probs: bool = False,
     ) -> Tuple[Action, np.ndarray, np.ndarray, np.ndarray]:
         """
         Runs the Re-Solve algorithm to generate an optimal action, and new ranges
@@ -42,7 +43,9 @@ class Resolver:
 
         action_probs = r1 @ mean_strategy
         action_probs /= np.sum(action_probs)
-        print(action_probs)
+
+        if show_action_probs:
+            print(action_probs)
 
         action_index = np.random.choice(len(AGENT_ACTIONS), p=action_probs)
 

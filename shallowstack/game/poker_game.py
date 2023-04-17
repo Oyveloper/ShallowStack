@@ -26,7 +26,7 @@ PLAYER_CONFIGS = {
 
 
 class GameManager:
-    def __init__(self, players: List[Player]):
+    def __init__(self, players: List[Player], show_private_info: bool = False):
         """
         Sets up a new game of poker with a given list of players
         The number of players must be between 2 and 6
@@ -55,6 +55,8 @@ class GameManager:
             [],
             Deck(),
         )
+
+        self.show_private_info = show_private_info
 
     def setup_game(self):
         pass
@@ -162,16 +164,14 @@ class GameManager:
         for player in self.game_state.players:
             player.receive_cards(self.game_state.deck.draw(2))
 
-    def showdown(self):
-        pass
-
     def display(self):
         print(f"Bet to match: {self.game_state.bet_to_match}")
         print(f"Pot: { self.game_state.pot}")
         print(f"Public cards: {self.game_state.public_cards}")
         for i, player in enumerate(self.game_state.players):
+            hand_str = f"{player.hand}" if self.show_private_info else ""
             print(
-                f"{player.name}: {player.hand} (bets: {self.game_state.player_bets[i]}), chips: {self.game_state.players[i].chips}"
+                f"{player.name}: {hand_str} (bets: {self.game_state.player_bets[i]}), chips: {self.game_state.players[i].chips}"
             )
 
         print()

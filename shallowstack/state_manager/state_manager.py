@@ -43,7 +43,6 @@ class GameState:
         winner: Optional[Player] = None,
         winner_index: int = -1,
         stage_bet_count: int = 0,
-        last_action: Optional[Action] = None,
     ):
         self.deck = deck
         self.stage = stage
@@ -59,7 +58,6 @@ class GameState:
         self.winner: Optional[Player] = winner
         self.winner_index: int = winner_index
         self.stage_bet_count = stage_bet_count
-        self.last_action = last_action
 
     def copy(self):
         return copy.deepcopy(self)
@@ -188,7 +186,6 @@ class StateManager:
             s.winner_index = int(np.argmax(s.players_in_game))
             s.winner = s.players[s.winner_index]
 
-        s.last_action = action
         s.increment_player_index()
         return s
 
@@ -234,7 +231,7 @@ class StateManager:
         hands = [p.hand for p in remaining_players]
         winner_index = PokerOracle.get_winner(hands, s.public_cards)
         s.winner = remaining_players[winner_index]
-        s.winner_index = winner_index
+        s.winner_index = int(winner_index)
         s.game_state_type = PokerGameStateType.WINNER
 
         return s

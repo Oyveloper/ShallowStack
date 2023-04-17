@@ -7,9 +7,6 @@ debug:
 dataset:
 	poetry run python3 main.py generate-training-data
 
-test-stuff:
-	poetry run python3 main.py test-stuff
-
 cheat-sheet:
 	poetry run python3 main.py generate-cheat-sheet
 

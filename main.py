@@ -13,13 +13,18 @@ import click
 
 from shallowstack.state_manager.state_manager import PokerGameStage
 
+SHOW_INTERNALS = False
+
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
-def cli(debug: bool):
+@click.option("--internals/--no-internals", default=False)
+def cli(debug: bool, internals: bool):
+    global SHOW_INTERNALS
     if debug:
         debugpy.listen(5678)
         debugpy.wait_for_client()
+    SHOW_INTERNALS = internals
 
 
 @cli.command()
@@ -92,15 +97,6 @@ def train_single_network(stage: str):
 def train_all(epochs: int, data_size: int, override_river: bool):
     nn_trainer = NNTrainer()
     nn_trainer.train_all_networks(epochs, data_size, override_river)
-
-
-@cli.command()
-def test_stuff():
-    data = PokerDataModule(PokerGameStage.RIVER, 1)
-    data.setup("")
-
-    i = iter(data.train_dataloader())
-    print(next(i))
 
 
 @cli.command()
@@ -185,8 +181,12 @@ def game(player_setup: str):
                 else:
                     ok = False
                     print("Invalid player type")
+    if SHOW_INTERNALS:
+        # Make sure to show internals
+        for player in players:
+            player.show_internals = True
 
-    game = GameManager(players)
+    game = GameManager(players, True)
 
     game.start_game()
 

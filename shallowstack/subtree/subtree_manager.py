@@ -188,9 +188,6 @@ class SubtreeManager:
         """
         # Initialize vectors to be overridden
         v1, v2 = np.zeros_like(r1), np.zeros_like(r2)
-
-        if np.any(np.isnan(r1)) or np.any(np.isnan(r2)):
-            print("found nan range!")
         match node.node_type:
             case NodeType.SHOWDOWN:
                 v1 = node.utility_matrix @ r2.T
@@ -302,10 +299,6 @@ class SubtreeManager:
         range: np.ndarray, strategy: np.ndarray, action_index: int
     ):
         p_action = np.sum(strategy[:, action_index]) / np.sum(strategy) + 0.0001
-
-        if not p_action > 0:
-            print("found zero action prob")
-            print(np.sum(strategy))
 
         res = range * strategy[:, action_index] / p_action
         return res
