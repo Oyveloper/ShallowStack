@@ -1,6 +1,7 @@
 import copy
 from enum import Enum
 from typing import List, Optional, Tuple
+from shallowstack.config.config import POKER_CONFIG
 from shallowstack.game.action import ALLOWED_RAISES, Action, ActionType
 from shallowstack.player.player import Player
 from shallowstack.poker.card import Card, Deck
@@ -8,7 +9,7 @@ import numpy as np
 
 from shallowstack.poker.poker_oracle import PokerOracle
 
-BET_PER_STAGE_LIMIT = 2
+BET_PER_STAGE_LIMIT = POKER_CONFIG.getint("BET_PER_STAGE_LIMIT")
 
 
 class PokerGameStage(Enum):

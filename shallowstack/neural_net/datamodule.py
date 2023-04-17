@@ -45,7 +45,7 @@ def generate_initial_situation_from_public_cards(
 
     """
     r1, r2 = generate_random_ranges(public_cards)
-    pot = np.random.randint(0, AVG_POT_SIZE)
+    pot = np.random.randint(0, AVG_POT_SIZE * 2)
 
     return (r1, r2, pot)
 

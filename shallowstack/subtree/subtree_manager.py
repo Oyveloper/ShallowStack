@@ -3,7 +3,7 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-from shallowstack.config.config import RESOLVER_CONFIG
+from shallowstack.config.config import POKER_CONFIG, RESOLVER_CONFIG
 
 from shallowstack.game.action import AGENT_ACTIONS, Action, agent_action_index
 from shallowstack.neural_net.neural_net_manager import NNManager
@@ -17,8 +17,8 @@ from shallowstack.poker.poker_oracle import PokerOracle
 from shallowstack.state_manager import GameState, PokerGameStage
 from shallowstack.state_manager.state_manager import PokerGameStateType, StateManager
 
-NBR_EVENTS = 5
-AVG_POT_SIZE = 200
+NBR_EVENTS = RESOLVER_CONFIG.getint("NBR_RANDOM_EVENTS")
+AVG_POT_SIZE = POKER_CONFIG.getint("AVG_POT_SIZE")
 
 
 class NodeType(Enum):

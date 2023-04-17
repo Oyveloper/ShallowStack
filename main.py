@@ -1,7 +1,10 @@
 from shallowstack.game.poker_game import PLAYER_CONFIGS, GameManager
 from shallowstack.neural_net.datamodule import PokerDataModule
 from shallowstack.neural_net.neural_net_trainer import NNTrainer
+from shallowstack.player.human import Human
+from shallowstack.player.hybrid_player import HybridPlayer
 from shallowstack.player.resolve_player import ResolvePlayer
+from shallowstack.player.rollout_player import RolloutPlayer
 from shallowstack.poker.card import Card
 from shallowstack.poker.poker_oracle import PokerOracle
 
@@ -128,6 +131,61 @@ def game(player_setup: str):
     Starts a game with the given player setup
     """
     players = PLAYER_CONFIGS[player_setup]
+    if len(players) == 0:
+        nbr_players = 0
+        while nbr_players < 2:
+            try:
+                nbr_players = int(input("How many players? "))
+            except KeyboardInterrupt:
+                exit()
+            except:
+                print("Must be between 2 and 6")
+
+        options = ["Human", "Rollout"]
+        if nbr_players == 2:
+            options.append("Resolve")
+            options.append("Hybrid")
+        for i in range(nbr_players):
+            print(f"Setup player {i}")
+            ok = False
+            while not ok:
+                ok = True
+                player_type = input(
+                    f"Player {i + 1} type? ({'/'.join(options)})\n"
+                ).strip()
+                if player_type == "Human":
+                    players.append(Human(f"Human {i + 1}"))
+                elif player_type == "Resolve":
+                    if nbr_players != 2:
+                        print("Cannot use resolve with more than 2 players")
+                        ok = False
+                        continue
+                    players.append(ResolvePlayer(f"Resolve {i + 1}"))
+                elif player_type == "Rollout":
+                    players.append(RolloutPlayer(f"Rollout {i + 1}"))
+                elif player_type == "Hybrid":
+                    if nbr_players != 2:
+                        print("Cannot use resolve with more than 2 players")
+                        ok = False
+                        continue
+
+                    prob_ok = False
+                    prob: float = 0.0
+                    while not prob_ok:
+                        try:
+                            prob = float(input("Probability? "))
+                            prob_ok = True
+                        except KeyboardInterrupt:
+                            exit()
+                        except:
+                            print("Must be a number between 0 and 1")
+                    players.append(
+                        HybridPlayer(f"Hybrid {i + 1}", resolve_probability=prob)
+                    )
+                else:
+                    ok = False
+                    print("Invalid player type")
+
     game = GameManager(players)
 
     game.start_game()

@@ -93,7 +93,7 @@ class PokerOracle:
             return 13 + c1_offset + c2_offset + suit_offset
 
     @staticmethod
-    def get_lookup_table():
+    def get_lookup_table() -> np.ndarray:
         return np.load("lookup_tables/preflop.npy")
 
     @staticmethod
@@ -143,6 +143,19 @@ class PokerOracle:
         if dest != "":
             np.save(dest, result)
         return result
+
+    @staticmethod
+    def hole_hand_winning_probability_cheat_sheet(
+        hole_cards: List[Card], num_players: int
+    ):
+        """
+        Uses pregenerated cheat-sheet to calculate win probabiliy
+        """
+        hand_type = PokerOracle.hand_to_hand_type(hole_cards)
+        idx = PokerOracle.hand_type_to_lookup_index(hand_type)
+        win_probability = PokerOracle.get_lookup_table()[idx]
+        num_player_index = num_players - 2
+        return win_probability[num_player_index]
 
     @staticmethod
     def hole_hand_winning_probability_rollout(
