@@ -63,14 +63,12 @@ def get_calculated_values_for_situation(
 
     game_state = GameState(
         stage,
-        [
-            Player("Player 1", 0),
-            Player("Player 2", 0),
-        ],
         0,
         np.array([pot / 2, pot / 2]),
+        np.ones(2) * 1000,
         np.zeros(2),
         np.ones(2),
+        np.zeros(2, dtype=bool),
         pot,
         pot // 2,
         public_cards,

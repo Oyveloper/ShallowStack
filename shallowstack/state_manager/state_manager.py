@@ -1,13 +1,11 @@
 import copy
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from shallowstack.config.config import POKER_CONFIG
 from shallowstack.game.action import ALLOWED_RAISES, Action, ActionType
-from shallowstack.player.player import Player
 from shallowstack.poker.card import Card, Deck
 import numpy as np
 
-from shallowstack.poker.poker_oracle import PokerOracle
 
 BET_PER_STAGE_LIMIT = POKER_CONFIG.getint("BET_PER_STAGE_LIMIT")
 
@@ -30,32 +28,32 @@ class GameState:
     def __init__(
         self,
         stage: PokerGameStage,
-        players: List[Player],
         current_player_index: int,
         player_bets: np.ndarray,
+        player_chips: np.ndarray,
         player_checks: np.ndarray,
         players_in_game: np.ndarray,
+        players_all_in: np.ndarray,
         pot: int,
         bet_to_match: int,
         public_cards: List[Card],
         deck: Deck,
         game_state_type: PokerGameStateType = PokerGameStateType.PLAYER,
-        winner: Optional[Player] = None,
         winner_index: int = -1,
         stage_bet_count: int = 0,
     ):
         self.deck = deck
         self.stage = stage
-        self.players = players
         self.player_bets = player_bets
+        self.player_chips = player_chips
         self.player_checks = player_checks
         self.players_in_game = players_in_game
+        self.players_all_in = players_all_in
         self.current_player_index = current_player_index
         self.bet_to_match = bet_to_match
         self.pot = pot
         self.public_cards = public_cards
         self.game_state_type = game_state_type
-        self.winner: Optional[Player] = winner
         self.winner_index: int = winner_index
         self.stage_bet_count = stage_bet_count
 
@@ -63,23 +61,26 @@ class GameState:
         return copy.deepcopy(self)
 
     def increment_player_index(self):
-        self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        self.current_player_index = (self.current_player_index + 1) % len(
+            self.player_bets
+        )
 
-    def reset_for_new_round(self):
+    def reset_for_new_round(self, redistribute_chips: bool = False):
         # reset game state
         self.pot = 0
         self.bet_to_match = 0
-        self.player_bets = np.zeros(len(self.players))
-        self.player_checks = np.zeros(len(self.players))
-        self.players_in_game = np.ones(len(self.players))
+        self.player_bets = np.zeros(len(self.player_bets))
+        self.player_checks = np.zeros(len(self.player_bets))
+        self.players_in_game = np.ones(len(self.player_bets))
+        self.players_all_in = np.zeros(len(self.player_bets))
         self.deck = Deck()
         self.stage = PokerGameStage.PRE_FLOP
         self.public_cards = []
         self.game_state_type = PokerGameStateType.PLAYER
-        self.winner = None
         self.stage_bet_count = 0
-        for player in self.players:
-            player.prepare_for_new_round()
+
+        if redistribute_chips:
+            self.player_chips = np.ones(len(self.player_bets)) * 1000
 
 
 class StateManager:
@@ -117,11 +118,11 @@ class StateManager:
             if action_type == ActionType.RAISE:
                 amounts = ALLOWED_RAISES
             elif action_type == ActionType.ALL_IN:
-                amounts = [game_state.players[game_state.current_player_index].chips]
+                amounts = [game_state.player_chips[game_state.current_player_index]]
 
             for amount in amounts:
-                if game_state.players[game_state.current_player_index].can_afford_bet(
-                    amount
+                if StateManager.can_afford_bet(
+                    game_state.current_player_index, amount, game_state
                 ):
                     action = Action(action_type, amount)
                     new_state = StateManager.apply_action(game_state, action)
@@ -129,6 +130,24 @@ class StateManager:
                     result.append((action, new_state))
 
         return result
+
+    @staticmethod
+    def can_afford_bet(player_index: int, amount: float, state: GameState) -> bool:
+        """Checks if given player can afford bet"""
+        return state.player_chips[player_index] >= amount
+
+    @staticmethod
+    def bet_amount(player_index: int, amount, state: GameState) -> GameState:
+        """Bets given amount for given player"""
+        s = state.copy()
+        s.player_chips[player_index] -= amount
+        s.player_bets[player_index] += amount
+        s.pot += amount
+
+        if s.player_bets[player_index] > s.bet_to_match:
+            s.bet_to_match = s.player_bets[player_index]
+
+        return s
 
     @staticmethod
     def apply_action(state: GameState, action: Action) -> GameState:
@@ -142,41 +161,32 @@ class StateManager:
         elif action.action_type == ActionType.CALL:
             diff = s.bet_to_match - s.player_bets[s.current_player_index]
 
-            player = s.players[s.current_player_index]
-            if player.can_afford_bet(diff):
-                s.player_bets[s.current_player_index] += diff
-                player.bet_chips(diff)
-                s.pot += diff
+            if StateManager.can_afford_bet(s.current_player_index, diff, s):
+                s = StateManager.bet_amount(s.current_player_index, diff, s)
                 s.player_checks[s.current_player_index] = True
+
         elif action.action_type == ActionType.CHECK:
             s.player_checks[s.current_player_index] = True
 
         elif action.action_type == ActionType.RAISE:
             pot_raised = True
             amount = action.amount
-            player = s.players[s.current_player_index]
 
             diff = max(0, s.bet_to_match - s.player_bets[s.current_player_index])
             total = diff + amount
-            if player.can_afford_bet(total):
-                s.player_bets[s.current_player_index] += total
-                player.bet_chips(total)
-                s.pot += total
-                s.bet_to_match = s.player_bets[s.current_player_index]
+            if StateManager.can_afford_bet(s.current_player_index, total, s):
+                s = StateManager.bet_amount(s.current_player_index, total, s)
 
         elif action.action_type == ActionType.ALL_IN:
-            player = s.players[s.current_player_index]
-            s.player_bets[s.current_player_index] += player.chips
-            s.pot += player.chips
-            s.bet_to_match = s.player_bets[s.current_player_index]
-            player.bet_chips(player.chips)
+            amount = s.player_chips[s.current_player_index]
+            s = StateManager.bet_amount(s.current_player_index, amount, s)
             s.player_checks[s.current_player_index] = False
             pot_raised = True
 
-            player.went_all_in = True
+            s.players_all_in[s.current_player_index] = True
 
         if pot_raised:
-            s.player_checks = np.zeros(len(s.players), dtype=bool)
+            s.player_checks = np.zeros(len(s.player_bets), dtype=bool)
             s.player_checks[s.current_player_index] = True
             s.stage_bet_count += 1
         if np.all(s.player_checks == s.players_in_game):
@@ -184,7 +194,6 @@ class StateManager:
         if np.sum(s.players_in_game) == 1:
             s.game_state_type = PokerGameStateType.WINNER
             s.winner_index = int(np.argmax(s.players_in_game))
-            s.winner = s.players[s.winner_index]
 
         s.increment_player_index()
         return s
@@ -199,42 +208,32 @@ class StateManager:
         player_bet = state.player_bets[state.current_player_index]
 
         diff = max(0, bet_to_match - player_bet)
-        player = state.players[state.current_player_index]
-        can_afford_call = player.can_afford_bet(diff)
+        can_afford_call = StateManager.can_afford_bet(
+            state.current_player_index, diff, state
+        )
+        all_in = state.players_all_in[state.current_player_index]
 
-        if diff == 0 or player.went_all_in:
+        if diff == 0 or all_in:
             actions.append(ActionType.CHECK)
 
         if can_afford_call and not state.player_checks[state.current_player_index]:
             actions.append(ActionType.CALL)
 
         # Check if they can afford the bare minimum raise
-        can_afford_raise = player.can_afford_bet(max(0, diff) + 1)
+        can_afford_raise = StateManager.can_afford_bet(
+            state.current_player_index, max(0, diff) + 1, state
+        )
 
         if can_afford_raise and state.stage_bet_count < BET_PER_STAGE_LIMIT:
             actions.append(ActionType.RAISE)
 
-        if player.chips > 0 and state.stage_bet_count < BET_PER_STAGE_LIMIT:
+        if (
+            state.player_chips[state.current_player_index] > 0
+            and state.stage_bet_count < BET_PER_STAGE_LIMIT
+        ):
             actions.append(ActionType.ALL_IN)
 
         return actions
-
-    @staticmethod
-    def find_winner(state: GameState) -> GameState:
-        """
-        finds the winner of the current state, and returns modified gamestate
-        """
-        s = state.copy()
-        remaining_players: List[Player] = [
-            s.players[i] for i in range(len(s.players)) if s.players_in_game[i]
-        ]
-        hands = [p.hand for p in remaining_players]
-        winner_index = PokerOracle.get_winner(hands, s.public_cards)
-        s.winner = remaining_players[winner_index]
-        s.winner_index = int(winner_index)
-        s.game_state_type = PokerGameStateType.WINNER
-
-        return s
 
     @staticmethod
     def progress_stage(state: GameState, deck: Deck) -> GameState:
@@ -242,7 +241,7 @@ class StateManager:
         Creates a new state from a stage transition
         """
         s = state.copy()
-        s.player_checks = np.zeros(len(s.players), dtype=bool)
+        s.player_checks = np.zeros(len(s.player_bets), dtype=bool)
         s.player_checks[s.current_player_index] = True
         s.game_state_type = PokerGameStateType.PLAYER
         s.stage_bet_count = 0

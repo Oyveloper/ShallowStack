@@ -7,10 +7,9 @@ if TYPE_CHECKING:
 
 
 class Player(object):
-    def __init__(self, name: str, chips: int = 1000):
+    def __init__(self, name: str):
         self.hand: List[Card] = []
         self.name = name
-        self.chips = chips
         self.went_all_in = False
 
     def get_action(self, game_state: "GameState") -> Action:
@@ -19,26 +18,11 @@ class Player(object):
         """
         return Action(ActionType.FOLD)
 
-    def add_chips(self, amount: int):
-        self.chips += amount
-
     def receive_cards(self, hand: List["Card"]):
         """
         Gives the player a hand of cards
         """
         self.hand = hand
-
-    def can_afford_bet(self, amount: int) -> bool:
-        """
-        Simple check to see if bet is allowed
-        """
-        return self.chips >= amount
-
-    def bet_chips(self, amount: int):
-        """
-        Performs the bet amount
-        """
-        self.chips -= amount
 
     def prepare_for_new_round(self):
         """

@@ -29,6 +29,12 @@ class NodeType(Enum):
     WON = 4
 
 
+class NodeVisitStatus(Enum):
+    UNVISITED = 0
+    VISITED_THIS_ITERATION = 1
+    VISITED_PREVIOUSLY = 2
+
+
 class SubtreeNode:
     def __init__(
         self,
@@ -50,6 +56,7 @@ class SubtreeNode:
         self.utility_matrix = utility_matrix
         self.regrets = regrets
         self.values = values
+        self.visited: NodeVisitStatus = NodeVisitStatus.UNVISITED
 
     def __str__(self, level=0, action=None) -> str:
         res = "\t" * level + f"{action} -> " + f"{self.node_type}\n"
@@ -129,6 +136,11 @@ class SubtreeManager:
         if node.node_type in [NodeType.SHOWDOWN, NodeType.TERMINAL, NodeType.WON]:
             return
 
+        if node.node_type == NodeType.CHANCE and node.children != []:
+            for _, child in node.children:
+                child.visited = NodeVisitStatus.UNVISITED
+            return
+
         child_states: List[Tuple[Action, GameState]] = StateManager.get_child_states(
             node.state, NBR_EVENTS
         )
@@ -147,8 +159,12 @@ class SubtreeManager:
             node_type = NodeType.PLAYER
             utility_matrix = node.utility_matrix.copy()
 
-            if action is not None and action in [a for a, _ in node.children]:
+            child_actions = [a for a, _ in node.children]
+
+            if action is not None and action in child_actions:
                 # Child state is already added
+                child = node.children[child_actions.index(action)][1]
+                child.visited = NodeVisitStatus.UNVISITED
                 continue
 
             if new_state.stage == PokerGameStage.SHOWDOWN:
@@ -181,13 +197,17 @@ class SubtreeManager:
             node.children.append((action, new_node))
 
     def subtree_traversal_rollout(
-        self, node: SubtreeNode, r1: np.ndarray, r2: np.ndarray, clean: bool = False
+        self,
+        node: SubtreeNode,
+        r1: np.ndarray,
+        r2: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs a rollout from a given node in the subtree
         """
         # Initialize vectors to be overridden
         v1, v2 = np.zeros_like(r1), np.zeros_like(r2)
+        node.visited = NodeVisitStatus.VISITED_THIS_ITERATION
         match node.node_type:
             case NodeType.SHOWDOWN:
                 v1 = node.utility_matrix @ r2.T
@@ -225,8 +245,12 @@ class SubtreeManager:
 
                 # Rollouts generate the tree each time
                 nbr_actions = RESOLVER_CONFIG.getint("NBR_ACTIONS_IN_ROLLOUT")
+                node.children = []
                 self.generate_children(node, action_limit=nbr_actions)
-                for action, child in node.children[-nbr_actions:]:
+                for action, child in node.children:
+                    if child.visited == NodeVisitStatus.VISITED_PREVIOUSLY:
+                        continue
+                    child.visited = NodeVisitStatus.VISITED_PREVIOUSLY
                     a = agent_action_index(action)
                     r_p_a = SubtreeManager.bayesian_range_update(r_p, node.strategy, a)
                     r_o_a = r_o
@@ -278,6 +302,8 @@ class SubtreeManager:
             for h in HOLE_PAIR_INDICES:
                 node_value = node.values[player_index][h]
                 for action, child in node.children:
+                    if child.visited != NodeVisitStatus.VISITED_THIS_ITERATION:
+                        continue
                     a = agent_action_index(action)
                     child_value = child.values[player_index][h]
                     R_t[h, a] += child_value - node_value
@@ -286,6 +312,9 @@ class SubtreeManager:
             R_plus_sum = np.sum(R_plus, axis=1)
 
             divisor = R_plus_sum[:, None]
+
+            # if np.any(R_plus_sum == 0):
+            #     print("bad")
 
             # Adding this to avoid the division by 0
             divisor[np.where(divisor == 0)] = 1 / R_t.shape[1]
@@ -298,7 +327,7 @@ class SubtreeManager:
     def bayesian_range_update(
         range: np.ndarray, strategy: np.ndarray, action_index: int
     ):
-        p_action = np.sum(strategy[:, action_index]) / np.sum(strategy) + 0.0001
+        p_action = np.sum(strategy[:, action_index]) / np.sum(strategy) + 0.001
 
         res = range * strategy[:, action_index] / p_action
         return res

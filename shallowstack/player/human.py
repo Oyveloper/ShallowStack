@@ -4,8 +4,8 @@ from shallowstack.state_manager.state_manager import StateManager, GameState
 
 
 class Human(Player):
-    def __init__(self, name: str, chips: int = 1000):
-        super().__init__(name, chips)
+    def __init__(self, name: str):
+        super().__init__(name)
 
     def get_action(self, game_state: GameState) -> Action:
         legal_actions = StateManager.get_legal_actions(game_state)

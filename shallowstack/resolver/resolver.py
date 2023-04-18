@@ -36,7 +36,7 @@ class Resolver:
 
         strategies = np.zeros((nbr_rollouts, 1326, len(AGENT_ACTIONS)))
         for t in range(nbr_rollouts):
-            tree.subtree_traversal_rollout(tree.root, r1, r2, clean=True)
+            tree.subtree_traversal_rollout(tree.root, r1, r2)
             strategies[t] = tree.update_strategy_at_node(tree.root)
 
         mean_strategy = strategies.mean(axis=0)

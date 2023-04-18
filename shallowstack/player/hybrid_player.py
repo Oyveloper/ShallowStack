@@ -13,11 +13,10 @@ class HybridPlayer(Player):
     def __init__(
         self,
         name: str,
-        chips: int = 1000,
         resolve_probability: float = 0.5,
         show_internals: bool = False,
     ):
-        super().__init__(name, chips)
+        super().__init__(name)
 
         self.r1 = np.ones(1326) / 1326
         self.r2 = np.ones(1326) / 1326
@@ -47,11 +46,11 @@ class HybridPlayer(Player):
         win_probability = 0
         if game_state.stage == PokerGameStage.PRE_FLOP:
             win_probability = PokerOracle.hole_hand_winning_probability_cheat_sheet(
-                self.hand, len(game_state.players)
+                self.hand, len(game_state.player_bets)
             )
         else:
             win_probability = PokerOracle.hole_hand_winning_probability_rollout(
-                self.hand, game_state.public_cards, len(game_state.players)
+                self.hand, game_state.public_cards, len(game_state.player_bets)
             )
 
         legal_actions = StateManager.get_legal_actions(game_state)
