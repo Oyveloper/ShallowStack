@@ -61,10 +61,9 @@ class GameManager:
         self.winner: Optional[Player] = None
         self.show_private_info = show_private_info
 
-    def setup_game(self):
-        pass
+        self.game_stats = [{"player": player.name, "wins": 0} for player in players]
 
-    def start_game(self):
+    def start_game(self, nbr_rounds: int = 10):
         """
         This is where we start a new game of poker
         """
@@ -136,6 +135,8 @@ class GameManager:
             total_index = self.players.index(self.winner)
             self.game_state.player_chips[total_index] += self.game_state.pot
 
+            self.update_stats(total_index, self.game_state.pot)
+
         self.rotate_blinds()
 
         # Start a new round
@@ -145,7 +146,11 @@ class GameManager:
                 print(f"{player.name} is out of chips!")
                 return
 
-        self.start_game()
+        if nbr_rounds == 0:
+            self.print_stats()
+            return
+
+        self.start_game(nbr_rounds - 1)
 
     def showdown(self):
         """Showdown to find the winner"""
@@ -201,3 +206,16 @@ class GameManager:
             )
 
         print()
+
+    def update_stats(self, winner_index: int, winnings: float):
+        """Updates the stat object"""
+        self.game_stats[winner_index]["wins"] += winnings
+
+    def print_stats(self):
+        """
+        Prints the stats after a game
+        """
+
+        print("Game stats:")
+        for stat in self.game_stats:
+            print(f"{stat['player']}: {stat['wins']}")
