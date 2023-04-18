@@ -4,6 +4,7 @@ from shallowstack.config.config import POKER_CONFIG
 from shallowstack.game.action import ActionType
 
 from shallowstack.player import Player, Human, ResolvePlayer, RolloutPlayer
+from shallowstack.player.hybrid_player import HybridPlayer
 from shallowstack.poker.card import Deck
 from shallowstack.poker.poker_oracle import PokerOracle
 from shallowstack.state_manager.state_manager import (
@@ -21,9 +22,67 @@ PLAYER_CONFIGS = {
     ],
     "HRes": [Human("Human"), ResolvePlayer("ResolvePlayer")],
     "ResRes": [ResolvePlayer("Resolver 1"), ResolvePlayer("Resolver 2")],
+    "ResRoll": [ResolvePlayer("Resolver 1"), RolloutPlayer("Rollout 2")],
     "Custom": [],
     "HRoll": [Human("Human"), RolloutPlayer("Rollout")],
 }
+
+
+def custom_player_setup() -> List[Player]:
+    players = []
+    nbr_players = 0
+    while nbr_players < 2:
+        try:
+            nbr_players = int(input("How many players? "))
+        except KeyboardInterrupt:
+            exit()
+        except:
+            print("Must be between 2 and 6")
+
+    options = ["Human", "Rollout"]
+    if nbr_players == 2:
+        options.append("Resolve")
+        options.append("Hybrid")
+    for i in range(nbr_players):
+        print(f"Setup player {i}")
+        ok = False
+        while not ok:
+            ok = True
+            player_type = input(f"Player {i + 1} type? ({'/'.join(options)})\n").strip()
+            if player_type == "Human":
+                players.append(Human(f"Human {i + 1}"))
+            elif player_type == "Resolve":
+                if nbr_players != 2:
+                    print("Cannot use resolve with more than 2 players")
+                    ok = False
+                    continue
+                players.append(ResolvePlayer(f"Resolve {i + 1}"))
+            elif player_type == "Rollout":
+                players.append(RolloutPlayer(f"Rollout {i + 1}"))
+            elif player_type == "Hybrid":
+                if nbr_players != 2:
+                    print("Cannot use resolve with more than 2 players")
+                    ok = False
+                    continue
+
+                prob_ok = False
+                prob: float = 0.0
+                while not prob_ok:
+                    try:
+                        prob = float(input("Probability? "))
+                        prob_ok = True
+                    except KeyboardInterrupt:
+                        exit()
+                    except:
+                        print("Must be a number between 0 and 1")
+                players.append(
+                    HybridPlayer(f"Hybrid {i + 1}", resolve_probability=prob)
+                )
+            else:
+                ok = False
+                print("Invalid player type")
+
+    return players
 
 
 class GameManager:
@@ -161,7 +220,7 @@ class GameManager:
                 remaining_players.append(player)
 
         hands = [p.hand for p in remaining_players]
-        winner_index = PokerOracle.get_winner(hands, self.game_state.public_cards)
+        winner_index = PokerOracle.get_winner(hands, self.game_state.public_info)
         self.winner = remaining_players[winner_index]
 
     def claim_blinds(self):
@@ -198,7 +257,7 @@ class GameManager:
         print()
         print(f"Bet to match: {self.game_state.bet_to_match}")
         print(f"Pot: { self.game_state.pot}")
-        print(f"Public cards: {self.game_state.public_cards}")
+        print(f"Public cards: {self.game_state.public_info}")
         for i, player in enumerate(self.players):
             hand_str = f"{player.hand}" if self.show_private_info else ""
             print(

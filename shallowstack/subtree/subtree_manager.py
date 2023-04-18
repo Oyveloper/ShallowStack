@@ -98,7 +98,7 @@ class SubtreeManager:
         end_depth: The depth at which the tree should end
         strategy: The current strategy for the starting node
         """
-        utility_matrix = PokerOracle.calculate_utility_matrix(state.public_cards)
+        utility_matrix = PokerOracle.calculate_utility_matrix(state.public_info)
         self.root = SubtreeNode(
             state.stage,
             state,
@@ -106,8 +106,8 @@ class SubtreeManager:
             NodeType.PLAYER,
             strategy,
             utility_matrix,
-            np.zeros((1326, len(AGENT_ACTIONS))),
-            np.zeros((2, 1326)),
+            np.zeros((strategy.shape[0], len(AGENT_ACTIONS))),
+            np.zeros((2, strategy.shape[0])),
         )
         self.end_stage = end_stage
         self.end_depth = end_depth
@@ -176,12 +176,12 @@ class SubtreeManager:
             ):
                 node_type = NodeType.TERMINAL
                 utility_matrix = PokerOracle.calculate_utility_matrix(
-                    new_state.public_cards
+                    new_state.public_info
                 )
             elif new_state.game_state_type == PokerGameStateType.DEALER:
                 node_type = NodeType.CHANCE
                 utility_matrix = PokerOracle.calculate_utility_matrix(
-                    new_state.public_cards
+                    new_state.public_info
                 )
 
             new_node = SubtreeNode(
@@ -217,7 +217,7 @@ class SubtreeManager:
                 v2 *= node.state.pot / AVG_POT_SIZE
 
             case NodeType.WON:
-                if node.state.winner_index == node.state.current_player_index:
+                if node.state.winner_index == self.root_player_index:
                     v1 = np.ones_like(v1)
                     v2 = -np.ones_like(v2)
                 else:
@@ -230,7 +230,7 @@ class SubtreeManager:
             case NodeType.TERMINAL:
                 network = self.nn_manager.get_network(node.state.stage)
                 in_vector = create_input_vector(
-                    r1, r2, node.state.public_cards, node.state.pot
+                    r1, r2, node.state.public_info, node.state.pot
                 )
                 v1, v2 = network.predict_values(in_vector)
             case NodeType.PLAYER:
@@ -250,6 +250,7 @@ class SubtreeManager:
                 for action, child in node.children:
                     if child.visited == NodeVisitStatus.VISITED_PREVIOUSLY:
                         continue
+
                     child.visited = NodeVisitStatus.VISITED_PREVIOUSLY
                     a = agent_action_index(action)
                     r_p_a = SubtreeManager.bayesian_range_update(r_p, node.strategy, a)
@@ -264,9 +265,8 @@ class SubtreeManager:
                         r1_a,
                         r2_a,
                     )
-                    for h in HOLE_PAIR_INDICES:
-                        v1[h] += node.strategy[h, a] * v1_a[h]
-                        v2[h] += node.strategy[h, a] * v2_a[h]
+                    v1 += node.strategy[:, a] * v1_a
+                    v2 += node.strategy[:, a] * v2_a
 
             case NodeType.CHANCE:
                 self.generate_children(node)
@@ -274,10 +274,10 @@ class SubtreeManager:
                 for _, child in node.children:
                     r1_e, r2_e = r1, r2
                     r1_e = SubtreeManager.update_range_from_public_cards(
-                        r1_e, node.state.public_cards
+                        r1_e, node.state.public_info
                     )
                     r2_e = SubtreeManager.update_range_from_public_cards(
-                        r2_e, node.state.public_cards
+                        r2_e, node.state.public_info
                     )
 
                     v1_e, v2_e = self.subtree_traversal_rollout(child, r1_e, r2_e)
@@ -293,6 +293,8 @@ class SubtreeManager:
 
     def update_strategy_at_node(self, node: SubtreeNode):
         for _, child in node.children:
+            if child.visited == NodeVisitStatus.VISITED_PREVIOUSLY:
+                continue
             self.update_strategy_at_node(child)
         if node.node_type == NodeType.PLAYER:
             R_t = node.regrets
@@ -313,13 +315,17 @@ class SubtreeManager:
 
             divisor = R_plus_sum[:, None]
 
-            # if np.any(R_plus_sum == 0):
-            #     print("bad")
-
             # Adding this to avoid the division by 0
             divisor[np.where(divisor == 0)] = 1 / R_t.shape[1]
 
-            node.strategy = R_plus / divisor
+            strategy = R_plus / divisor
+
+            if np.sum(strategy) == 0:
+                # Must avoid these bad strategies
+                # Using the original strategy instead
+                strategy = node.strategy
+
+            node.strategy = strategy
 
             return node.strategy
 
@@ -328,6 +334,9 @@ class SubtreeManager:
         range: np.ndarray, strategy: np.ndarray, action_index: int
     ):
         p_action = np.sum(strategy[:, action_index]) / np.sum(strategy) + 0.001
+
+        if np.sum(strategy) == 0:
+            print("bad divide")
 
         res = range * strategy[:, action_index] / p_action
         return res

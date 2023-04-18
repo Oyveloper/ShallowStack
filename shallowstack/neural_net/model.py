@@ -7,12 +7,12 @@ import numpy as np
 
 
 class ValueNetwork(pl.LightningModule):
-    def __init__(self, range_size: int, nbr_public_cards: int):
+    def __init__(self, range_size: int, public_info_size: int):
         super().__init__()
         self.range_size = range_size
-        self.nbr_public_cards = nbr_public_cards
+        self.public_info_size = public_info_size
 
-        self.fc1 = nn.Linear(range_size * 2 + nbr_public_cards + 1, 256)
+        self.fc1 = nn.Linear(range_size * 2 + public_info_size + 1, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, 64)
         self.fc4 = nn.Linear(64, 32)
@@ -33,7 +33,7 @@ class ValueNetwork(pl.LightningModule):
             [
                 self.range_size,
                 self.range_size,
-                1 + self.nbr_public_cards,
+                1 + self.public_info_size,
             ],
             dim=1,
         )
@@ -60,7 +60,7 @@ class ValueNetwork(pl.LightningModule):
         # Split the batch into input and target values
         x, y = batch.split(
             [
-                self.range_size * 2 + 1 + self.nbr_public_cards,
+                self.range_size * 2 + 1 + self.public_info_size,
                 self.range_size * 2 + 1,
             ],
             dim=1,
@@ -80,7 +80,7 @@ class ValueNetwork(pl.LightningModule):
         """
         x, y = batch.split(
             [
-                self.range_size * 2 + 1 + self.nbr_public_cards,
+                self.range_size * 2 + 1 + self.public_info_size,
                 self.range_size * 2 + 1,
             ],
             dim=1,

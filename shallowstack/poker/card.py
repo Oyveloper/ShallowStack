@@ -147,11 +147,3 @@ class Deck:
         if s == 0:
             s = 1
         self.card_distribution = self.card_distribution / s
-
-
-# def pair_from_index(index: int) -> Tuple[Card, Card]:
-#     pass
-#
-#
-# def index_from_pair(card1: Card, card2: Card) -> int:
-#     pass

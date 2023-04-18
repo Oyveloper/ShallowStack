@@ -11,6 +11,7 @@ class Player(object):
         self.hand: List[Card] = []
         self.name = name
         self.went_all_in = False
+        self.show_internals: bool = False
 
     def get_action(self, game_state: "GameState") -> Action:
         """

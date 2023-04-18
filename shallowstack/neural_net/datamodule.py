@@ -14,7 +14,6 @@ from tqdm import tqdm
 from shallowstack.game.action import AGENT_ACTIONS
 
 from shallowstack.neural_net.util import create_input_vector, create_output_vector
-from shallowstack.player.player import Player
 from shallowstack.poker.card import Card
 from shallowstack.poker.card import Deck
 from shallowstack.state_manager.state_manager import GameState, PokerGameStage
@@ -22,13 +21,15 @@ from shallowstack.subtree.subtree_manager import AVG_POT_SIZE
 from shallowstack.subtree.subtree_manager import SubtreeManager
 
 
-def generate_random_ranges(public_cards: List[Card]) -> Tuple[np.ndarray, np.ndarray]:
+def generate_random_ranges(
+    public_cards: List[Card], range_size: int = 1326
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generates two player ranges filtered by the provdied public cards
     """
-    r1 = np.random.random(1326)
+    r1 = np.random.random(range_size)
     r1 = r1 / np.sum(r1)
-    r2 = np.random.random(1326)
+    r2 = np.random.random(range_size)
     r2 = r2 / np.sum(r2)
 
     r1 = SubtreeManager.update_range_from_public_cards(r1, public_cards)
@@ -87,7 +88,7 @@ def get_calculated_values_for_situation(
     elif stage == PokerGameStage.RIVER:
         end_depth = 20
 
-    strategy = np.ones((1326, len(AGENT_ACTIONS))) / 1326
+    strategy = np.ones((r1.size, len(AGENT_ACTIONS))) / r1.size
 
     tree = SubtreeManager(game_state, end_stage, end_depth, strategy)
 

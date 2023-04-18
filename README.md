@@ -32,3 +32,28 @@ This number has been set to 2, but can be changed in the config.
 The average pot size is used in evaluations to be ale to calculate the relative size of a given pot, which gives higher value to higher winnings.
 Here the average pot size used is 200 (for 2-player games).
 This value is a bit arbitrary, after experience with playing simulated games.
+
+## Value networks
+
+The networks used for training the model are quite simple. They are simple feed forward networks with 4 layers as follows:
+
+- input_size x 256
+- 256 x 128
+- 128 x 64
+- 64 x 32
+- 32 x range_size \* 2
+
+After each layer, the ReLU activation function is used.
+Finally, the model is evaluated with HuberLoss against a
+vector matching the value vectors concatenated with the zero-sum condition
+
+In total there are 810 K trainable parameters.
+
+### Parameters
+
+| What          | Value                   |
+| ------------- | ----------------------- |
+| learning rate | 1e-3                    |
+| optimizer     | Adam                    |
+| batch size    | 10                      |
+| epochs        | configured when running |

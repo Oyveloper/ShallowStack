@@ -36,7 +36,7 @@ class GameState:
         players_all_in: np.ndarray,
         pot: int,
         bet_to_match: int,
-        public_cards: List[Card],
+        public_info: List[Card],
         deck: Deck,
         game_state_type: PokerGameStateType = PokerGameStateType.PLAYER,
         winner_index: int = -1,
@@ -52,7 +52,7 @@ class GameState:
         self.current_player_index = current_player_index
         self.bet_to_match = bet_to_match
         self.pot = pot
-        self.public_cards = public_cards
+        self.public_info = public_info
         self.game_state_type = game_state_type
         self.winner_index: int = winner_index
         self.stage_bet_count = stage_bet_count
@@ -75,7 +75,7 @@ class GameState:
         self.players_all_in = np.zeros(len(self.player_bets))
         self.deck = Deck()
         self.stage = PokerGameStage.PRE_FLOP
-        self.public_cards = []
+        self.public_info = []
         self.game_state_type = PokerGameStateType.PLAYER
         self.stage_bet_count = 0
 
@@ -98,7 +98,7 @@ class StateManager:
             for _ in range(nbr_random_events):
                 new_state = state.copy()
                 deck = Deck()
-                deck.remove_cards(new_state.public_cards)
+                deck.remove_cards(new_state.public_info)
                 states.append((None, StateManager.progress_stage(new_state, deck)))
 
         return states
@@ -247,14 +247,16 @@ class StateManager:
         s.stage_bet_count = 0
         if s.stage == PokerGameStage.PRE_FLOP:
             s.stage = PokerGameStage.FLOP
-            s.public_cards = deck.draw(3)
+            s.public_info = deck.draw(3)
         elif s.stage == PokerGameStage.FLOP:
             s.stage = PokerGameStage.TURN
-            s.public_cards += deck.draw(1)
+            s.public_info += deck.draw(1)
         elif s.stage == PokerGameStage.TURN:
             s.stage = PokerGameStage.RIVER
-            s.public_cards += deck.draw(1)
+            s.public_info += deck.draw(1)
         elif s.stage == PokerGameStage.RIVER:
             s.stage = PokerGameStage.SHOWDOWN
+
+        s.deck = deck
 
         return s

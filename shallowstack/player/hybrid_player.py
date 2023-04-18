@@ -14,14 +14,16 @@ class HybridPlayer(Player):
         self,
         name: str,
         resolve_probability: float = 0.5,
+        range_size: int = 1326,
         show_internals: bool = False,
     ):
         super().__init__(name)
 
-        self.r1 = np.ones(1326) / 1326
-        self.r2 = np.ones(1326) / 1326
+        self.range_size = range_size
+        self.r1 = np.ones(range_size) / range_size
+        self.r2 = np.ones(range_size) / range_size
 
-        self.opponent_strategy = np.ones((1326, len(AGENT_ACTIONS))) / len(
+        self.opponent_strategy = np.ones((range_size, len(AGENT_ACTIONS))) / len(
             AGENT_ACTIONS
         )
 
@@ -50,7 +52,7 @@ class HybridPlayer(Player):
             )
         else:
             win_probability = PokerOracle.hole_hand_winning_probability_rollout(
-                self.hand, game_state.public_cards, len(game_state.player_bets)
+                self.hand, game_state.public_info, len(game_state.player_bets)
             )
 
         legal_actions = StateManager.get_legal_actions(game_state)
@@ -74,10 +76,12 @@ class HybridPlayer(Player):
         Handles logic for using resolve based strategy
         """
         current_stage = game_state.stage
+        end_depth = 0
         if current_stage.value < PokerGameStage.RIVER.value:
-            end_stage = current_stage
-        else:
             end_stage = PokerGameStage((game_state.stage.value + 1))
+        else:
+            end_stage = current_stage
+            end_depth = 10
 
         nbr_rollouts = RESOLVER_CONFIG.getint("NBR_ROLLOUTS")
 
@@ -86,7 +90,7 @@ class HybridPlayer(Player):
             self.r1,
             self.r2,
             end_stage,
-            5,
+            end_depth,
             nbr_rollouts,
             self.show_internals,
         )
@@ -95,8 +99,8 @@ class HybridPlayer(Player):
 
     def prepare_for_new_round(self):
         super().prepare_for_new_round()
-        self.r1 = np.ones(1326) / 1326
-        self.r2 = np.ones(1326) / 1326
+        self.r1 = np.ones(self.range_size) / self.range_size
+        self.r2 = np.ones(self.range_size) / self.range_size
 
     def inform_of_action(self, action: Action, player: Player):
         if player.name == self.name:
@@ -112,6 +116,12 @@ class HybridPlayer(Player):
 
         action_index = AGENT_ACTIONS.index(Action(action_type, closest_amount))
 
-        self.r2 = SubtreeManager.bayesian_range_update(
+        r2 = SubtreeManager.bayesian_range_update(
             self.r2, self.opponent_strategy, action_index
         )
+
+        if np.sum(r2) == 0:
+            # Must avoid putting a stupid range
+            return
+
+        self.r2 = r2

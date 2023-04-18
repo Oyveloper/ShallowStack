@@ -1,4 +1,8 @@
-from shallowstack.game.poker_game import PLAYER_CONFIGS, GameManager
+from shallowstack.game.poker_game import (
+    PLAYER_CONFIGS,
+    GameManager,
+    custom_player_setup,
+)
 from shallowstack.neural_net.datamodule import PokerDataModule
 from shallowstack.neural_net.neural_net_trainer import NNTrainer
 from shallowstack.player.human import Human
@@ -120,67 +124,16 @@ def show_cheat_sheet():
 
 @cli.command()
 @click.option(
-    "--player_setup", type=click.Choice(list(PLAYER_CONFIGS.keys())), default="HRes"
+    "--player_setup", type=click.Choice(list(PLAYER_CONFIGS.keys())), default="Custom"
 )
-def game(player_setup: str):
+@click.option("--nbr_rounds", type=click.IntRange(min=1, max=10000), default=10)
+def game(player_setup: str, nbr_rounds: int):
     """
     Starts a game with the given player setup
     """
     players = PLAYER_CONFIGS[player_setup]
     if len(players) == 0:
-        nbr_players = 0
-        while nbr_players < 2:
-            try:
-                nbr_players = int(input("How many players? "))
-            except KeyboardInterrupt:
-                exit()
-            except:
-                print("Must be between 2 and 6")
-
-        options = ["Human", "Rollout"]
-        if nbr_players == 2:
-            options.append("Resolve")
-            options.append("Hybrid")
-        for i in range(nbr_players):
-            print(f"Setup player {i}")
-            ok = False
-            while not ok:
-                ok = True
-                player_type = input(
-                    f"Player {i + 1} type? ({'/'.join(options)})\n"
-                ).strip()
-                if player_type == "Human":
-                    players.append(Human(f"Human {i + 1}"))
-                elif player_type == "Resolve":
-                    if nbr_players != 2:
-                        print("Cannot use resolve with more than 2 players")
-                        ok = False
-                        continue
-                    players.append(ResolvePlayer(f"Resolve {i + 1}"))
-                elif player_type == "Rollout":
-                    players.append(RolloutPlayer(f"Rollout {i + 1}"))
-                elif player_type == "Hybrid":
-                    if nbr_players != 2:
-                        print("Cannot use resolve with more than 2 players")
-                        ok = False
-                        continue
-
-                    prob_ok = False
-                    prob: float = 0.0
-                    while not prob_ok:
-                        try:
-                            prob = float(input("Probability? "))
-                            prob_ok = True
-                        except KeyboardInterrupt:
-                            exit()
-                        except:
-                            print("Must be a number between 0 and 1")
-                    players.append(
-                        HybridPlayer(f"Hybrid {i + 1}", resolve_probability=prob)
-                    )
-                else:
-                    ok = False
-                    print("Invalid player type")
+        players = custom_player_setup()
     if SHOW_INTERNALS:
         # Make sure to show internals
         for player in players:
@@ -188,7 +141,7 @@ def game(player_setup: str):
 
     game = GameManager(players, True)
 
-    game.start_game()
+    game.start_game(nbr_rounds)
 
 
 if __name__ == "__main__":
