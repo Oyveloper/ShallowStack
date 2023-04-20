@@ -3,3 +3,5 @@ __pycache__
 .vscode
 *.pt
 lightning_logs/
+data
+*.zip
